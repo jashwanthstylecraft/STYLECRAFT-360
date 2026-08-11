@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Real company data — never committed. Seed files under server/data/seed/
+# stay as empty-structure skeletons (tracked); their _archive/ subfolder
+# holds the original real numbers + reconciliation reports and must not be
+# pushed. server/data/uploads/ holds the live committed snapshot(s) — also
+# real data, also excluded.
+server/data/seed/_archive/
+server/data/uploads/*.json
+server/data/uploads/pending/
+!server/data/uploads/.gitkeep
+
+# Local state (lifetime counter value, etc.) — not real financial data, but
+# machine-specific runtime state, not source.
+server/data/state/counter.json
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

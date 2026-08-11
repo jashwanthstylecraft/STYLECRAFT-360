@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StyleCraft 360</title>
+    <script>
+      // Applied before React mounts so there's no flash of the wrong theme.
+      (function () {
+        var stored = localStorage.getItem("stylecraft-theme");
+        var dark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+      })();
+    </script>
+    <script>
+      // Decodes the ?redirect= param 404.html left behind (GitHub Pages has
+      // no server-side rewrite for client-routed paths) and restores the
+      // real URL via history.replaceState before React Router mounts, so a
+      // direct load of a sub-path — or a refresh on one — lands on the
+      // right page instead of bouncing back to "/". No-op outside Pages
+      // (local dev/any real server never hits a 404 for a known route).
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var redirect = params.get("redirect");
+        if (!redirect) return;
+        var base = window.location.pathname.replace(/\/$/, "");
+        history.replaceState(null, "", base + redirect);
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>StyleCraft 360</title>
+    <script>
+      // GitHub Pages has no server-side rewrite, so a direct load of (or
+      // refresh on) a client-routed path like /STYLECRAFT-360/sales 404s at
+      // the CDN before React Router ever runs. Standard spa-github-pages
+      // fix: encode everything after the repo-name segment into a query
+      // param on a redirect back to index.html, which decodes it and hands
+      // the real path to the router before it mounts (see index.html).
+      (function () {
+        var REPO_BASE = "/STYLECRAFT-360";
+        var l = window.location;
+        var rest = l.pathname.slice(REPO_BASE.length) + l.search + l.hash;
+        l.replace(REPO_BASE + "/?redirect=" + encodeURIComponent(rest || "/"));
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
