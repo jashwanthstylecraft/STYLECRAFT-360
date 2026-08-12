@@ -26,6 +26,12 @@ with a live, responsive web app while preserving the report's structure
   (`server/data/repository.js`) so it's sourced from an uploaded snapshot when
   one exists, falling back to seed data otherwise — no service ever reads a
   seed module directly.
+- **Python 3 + openpyxl** (`server/requirements.txt`) — a genuine second
+  runtime, used only by `server/scripts/build_export_workbook.py` to write
+  real native Excel chart objects for `GET /api/export/excel`. SheetJS/`xlsx`
+  can't create chart objects, so this is spawned as a child process
+  (`PYTHON_BIN` env var, default `python`) rather than replacing the Node
+  stack. Must be installed on any host serving that endpoint.
 
 ## Project structure
 
@@ -77,6 +83,7 @@ Requires Node.js 18+.
 
 ```bash
 npm run install:all   # installs server/ and client/ dependencies
+pip install -r server/requirements.txt   # openpyxl, for Excel export's native charts
 npm run dev:all       # runs API (localhost:4000) + client (localhost:5173)
 ```
 
@@ -108,6 +115,7 @@ Set `DEMO_COUNTER=false` to disable it and drive the counter only via real
 | `POST /api/data/apply` `{uploadId, note}` | Commits a previously-uploaded, error-free parse as the new active snapshot |
 | `GET /api/data/versions` · `POST /api/data/versions/:file/restore` | List / roll back to a prior snapshot (last 20 kept) |
 | `GET /api/data/stream` | SSE — broadcasts `data-updated` on every apply/restore |
+| `GET /api/export/excel?from=&to=` | Streams `StyleCraft360_Data_<date>_<time>.xlsx` — `Graphs` (native charts, one per metric) + `Data` (canonical, round-trippable) sheets for the active snapshot. Omit `from`/`to` for the full first-to-last-data range. |
 
 Every department response has the same shape as before:
 `{ asOf, weeks, metrics, summary, isSampleData }`.

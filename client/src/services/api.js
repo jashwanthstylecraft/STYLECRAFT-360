@@ -45,8 +45,9 @@ export function fetchHomeSummary({ from, to, period } = {}) {
   return request(`/home/summary?_${rangeQuery({ from, to })}${periodQuery(period)}`);
 }
 
-export function fetchHomeInsights({ from, to } = {}) {
-  return request(`/home/insights?_${rangeQuery({ from, to })}`);
+export function fetchHomeInsights({ from, to, visibleFrom } = {}) {
+  const visibleFromQuery = visibleFrom ? `&visibleFrom=${encodeURIComponent(visibleFrom)}` : "";
+  return request(`/home/insights?_${rangeQuery({ from, to })}${visibleFromQuery}`);
 }
 
 export function fetchDataStatus() {
@@ -58,6 +59,10 @@ export function fetchDataVersions() {
 }
 
 export const TEMPLATE_DOWNLOAD_URL = `${API_BASE}/data/template`;
+
+export function buildExportExcelUrl({ from, to } = {}) {
+  return `${API_BASE}/export/excel?${rangeQuery({ from, to }).replace(/^&/, "")}`;
+}
 
 export function uploadDataFile(file) {
   const formData = new FormData();
@@ -95,5 +100,13 @@ export function saveEntryWeek(weekEnding, entries, note) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entries, note }),
+  });
+}
+
+export function setCounterTotal(total) {
+  return request("/counter", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ total }),
   });
 }

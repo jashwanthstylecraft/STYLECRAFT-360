@@ -76,22 +76,43 @@ function getSparseDepartmentData(departmentKey) {
   return snapshot?.departments?.[departmentKey] ?? SEED_BY_DEPARTMENT[departmentKey];
 }
 
-// The MEDIAN of each metric's own last-reported week, not the max — reported
+const STRAGGLER_TOLERANCE_WEEKS = 4;
+
+function weeksBetween(isoA, isoB) {
+  return Math.abs(new Date(`${isoA}T00:00:00Z`) - new Date(`${isoB}T00:00:00Z`)) / (7 * 86400000);
+}
+
+// The latest of each metric's own last-reported week, EXCLUDING stragglers
+// more than STRAGGLER_TOLERANCE_WEEKS beyond the pack's median — reported
 // actuals only (`values`), never `goals` (goals are frequently pre-set weeks
-// or months ahead of any real activity). Median instead of max because real
-// metrics don't all stop reporting on the same week: one metric that happens
-// to still be updated further out (e.g. a system-derived figure vs. a
-// manually-reported one) would otherwise single-handedly drag "the current
-// view" out to a week where every OTHER metric is empty. Median reflects
-// where the department/company as a whole was still actively reporting.
+// or months ahead of any real activity).
+//
+// Plain max is wrong: a metric on a genuinely different, much-longer-ahead
+// reporting cadence (e.g. a system-derived figure tracked for months past
+// when every manually-reported metric stopped) would single-handedly drag
+// "the current view" out to a week where everything else is empty.
+//
+// Plain median is ALSO wrong, for the opposite reason: mid-week Data Entry
+// naturally updates one metric at a time, so a just-saved current week
+// looks statistically identical to a straggler until enough OTHER metrics
+// catch up — which could take days, during which the new week silently
+// never appears on any dashboard.
+//
+// Trimming outliers relative to the median gets both right: a save that's
+// a week or two ahead of the pack (normal, expected, ongoing entry) still
+// wins as the anchor; a metric that's months ahead on an unrelated cadence
+// (Phase 6's real case) still gets excluded.
 function latestDataWeekEnding(sparseSource) {
   const lastPerMetric = sparseSource.METRICS.map((metric) => {
     const keys = Object.keys(metric.values ?? {});
     return keys.length ? keys.sort().at(-1) : null;
   }).filter(Boolean);
   if (lastPerMetric.length === 0) return null;
+
   const sorted = lastPerMetric.sort();
-  return sorted[Math.floor((sorted.length - 1) / 2)];
+  const median = sorted[Math.floor((sorted.length - 1) / 2)];
+  const withinTolerance = sorted.filter((iso) => weeksBetween(iso, median) <= STRAGGLER_TOLERANCE_WEEKS);
+  return withinTolerance.at(-1) ?? median;
 }
 
 // No explicit range requested: the last DEFAULT_WINDOW_WEEKS calendar weeks

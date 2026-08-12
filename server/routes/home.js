@@ -10,8 +10,8 @@ router.get("/summary", (req, res) => {
 });
 
 router.get("/insights", (req, res) => {
-  const { from, to } = req.query;
-  res.json(getHomeInsights({ from, to }));
+  const { from, to, visibleFrom } = req.query;
+  res.json(getHomeInsights({ from, to, visibleFrom }));
 });
 
 module.exports = router;

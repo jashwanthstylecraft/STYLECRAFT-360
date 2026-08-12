@@ -8,6 +8,7 @@ import Operations from "./pages/Operations";
 import DataUpload from "./pages/DataUpload";
 import DataEntry from "./pages/DataEntry";
 import MetricDetail from "./pages/MetricDetail";
+import Settings from "./pages/Settings";
 import { useDataUpdatesListener } from "./hooks/useDataUpdatesListener";
 
 export default function App() {
@@ -93,6 +94,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DataEntry />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />

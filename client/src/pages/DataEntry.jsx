@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import WeekList from "../components/entry/WeekList";
 import EntryForm from "../components/entry/EntryForm";
+import ExportExcelDialog from "../components/data/ExportExcelDialog";
 import { useEntryData, useEntryCoverage, useSaveEntryWeek } from "../hooks/useEntryData";
 
 export default function DataEntry() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedWeek = searchParams.get("week") || undefined;
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const { data: coverage, isLoading: coverageLoading } = useEntryCoverage();
   const { data: entryData, isLoading: entryLoading, isError, error } = useEntryData(requestedWeek);
@@ -32,12 +35,26 @@ export default function DataEntry() {
 
   return (
     <PageShell lastUpdated={null}>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-heading">Data Entry</h1>
-        <p className="mt-1 text-sm text-ink-secondary">
-          Click any week in the master calendar (2022–2027) to view or edit its numbers.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-heading">Data Entry</h1>
+          <p className="mt-1 text-sm text-ink-secondary">
+            Click any week in the master calendar (2022–2027) to view or edit its numbers.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowExportDialog(true)}
+          className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
+        >
+          <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
+            <FileSpreadsheet size={15} />
+            Download Excel
+          </span>
+          <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
+        </button>
       </div>
+
+      {showExportDialog && <ExportExcelDialog onClose={() => setShowExportDialog(false)} />}
 
       {isError && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">

@@ -9,6 +9,7 @@ const homeRouter = require("./routes/home");
 const dataRouter = require("./routes/data");
 const entryRouter = require("./routes/entry");
 const detailRouter = require("./routes/detail");
+const exportRouter = require("./routes/export");
 const { requireAuth } = require("./middleware/auth");
 const sharedRegistry = require("./data/sharedRegistry");
 
@@ -32,6 +33,7 @@ app.use("/api/home", homeRouter);
 app.use("/api/data", dataRouter);
 app.use("/api/entry", entryRouter);
 app.use("/api/detail", detailRouter);
+app.use("/api/export", exportRouter);
 
 // The shared metric registry is genuine ESM (so the Vite client can import
 // the exact same source with no build step); this CJS server bridges it via

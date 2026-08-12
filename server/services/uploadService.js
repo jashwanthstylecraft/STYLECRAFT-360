@@ -5,7 +5,7 @@ const repository = require("../data/repository");
 const { toSparse } = require("../data/sparseFormat");
 const counterService = require("./counterService");
 const snapshotService = require("./snapshotService");
-const { COUNTER_SHEET, COUNTER_KEY } = require("./xlsxSchema");
+const { COUNTER_SHEET, COUNTER_KEY, DATA_SHEET, GRAPHS_SHEET, META_MARKER, FIXED_COLUMNS } = require("./xlsxSchema");
 const { lookupHeading, normalizeHeading } = require("./xlsxHeadingMap");
 
 const { UPLOADS_DIR } = repository;
@@ -18,9 +18,20 @@ const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations"];
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(PENDING_DIR, { recursive: true });
 
+// Omits a key entirely when its value is null/undefined (rather than
+// setting it to undefined and relying on JSON.stringify to silently drop
+// it) — a stored point that never had a given sub-series yet ({backorder:
+// 0}, no `preorder` key at all) must compare EQUAL to a freshly-parsed point
+// that explicitly nulls it out ({preorder: null, backorder: 0}); those are
+// the same real-world fact ("not tracked that week"), and JSON.stringify
+// treats an absent key and an undefined-valued key the same but a
+// null-valued key differently, which used to make them compare unequal.
 function pick(obj, keys) {
   const out = {};
-  for (const key of keys) out[key] = obj?.[key];
+  for (const key of keys) {
+    const v = obj?.[key];
+    if (v !== null && v !== undefined) out[key] = v;
+  }
   return out;
 }
 
@@ -34,12 +45,37 @@ function isEmptyGroup(raw, seriesKeys) {
   return seriesKeys.every((key) => raw[key] === null || raw[key] === undefined);
 }
 
-// ---- StyleCraft's real workbook format ----
-// One sheet ("Raw Data - Do Not Touch"), weeks as rows (col A, Excel date
-// serials), metrics as column-groups with a 2-row header: row 1 names the
-// metric (spanning its columns), row 2 sub-labels each column ("Value",
-// "Goal", or a series name like "SC"/"Gamma"). xlsxHeadingMap.js translates
-// their exact headings to our department/slug/series-key model.
+function toNumberOrNull(cell, errors, context) {
+  if (cell === null || cell === undefined || cell === "") return null;
+  if (typeof cell !== "number" || !Number.isFinite(cell)) {
+    errors.push({ department: context.department, message: `"${context.heading}" (${context.subLabel}), week ${context.week}: expected a number, found "${cell}".` });
+    return null;
+  }
+  return cell;
+}
+
+function parseCounterSheet(sheet, warnings) {
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+  for (const row of rows) {
+    if (!row || row.length < 2 || row[0] === null) continue;
+    if (String(row[0]).trim().toLowerCase() === COUNTER_KEY) {
+      const value = row[1];
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+        warnings.push({ message: `Counter sheet's "${COUNTER_KEY}" value looks invalid — ignoring the counter override.` });
+        return null;
+      }
+      return Math.round(value);
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// OLD format (Phase 1-6) — StyleCraft's real "Raw Data - Do Not Touch"
+// export. One sheet, weeks as rows (col A, Excel date serials), metrics as
+// column-groups with a 2-row header. Still fully supported on import
+// (flagged with a deprecation warning), no longer written by this app.
+// ============================================================
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -116,60 +152,11 @@ function findLastReportedRowIndex(rows, valueColumns) {
   return -1;
 }
 
-function toNumberOrNull(cell, errors, context) {
-  if (cell === null || cell === undefined || cell === "") return null;
-  if (typeof cell !== "number" || !Number.isFinite(cell)) {
-    errors.push({ department: context.department, message: `"${context.heading}" (${context.subLabel}), week ${context.week}: expected a number, found "${cell}".` });
-    return null;
-  }
-  return cell;
-}
-
-function parseCounterSheet(sheet, warnings) {
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-  for (const row of rows) {
-    if (!row || row.length < 2 || row[0] === null) continue;
-    if (String(row[0]).trim().toLowerCase() === COUNTER_KEY) {
-      const value = row[1];
-      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-        warnings.push({ message: `Counter sheet's "${COUNTER_KEY}" value looks invalid — ignoring the counter override.` });
-        return null;
-      }
-      return Math.round(value);
-    }
-  }
-  return null;
-}
-
-function parseWorkbook(buffer) {
-  let workbook;
-  try {
-    workbook = XLSX.read(buffer, { type: "buffer" });
-  } catch (err) {
-    return {
-      ok: false,
-      errors: [{ message: `Could not read the file — is it a valid .xlsx workbook? (${err.message})` }],
-      warnings: [],
-      preview: [],
-      departments: {},
-      counterOverride: null,
-    };
-  }
-
-  const errors = [];
-  const warnings = [];
-
-  const counterOverride = workbook.SheetNames.includes(COUNTER_SHEET)
-    ? parseCounterSheet(workbook.Sheets[COUNTER_SHEET], warnings)
-    : null;
-
+// Returns { metricsByDept, foundSlugs, weekLabels, weekEndings, dataSheetName }
+// or { errors: [...] } if this workbook doesn't look like the old format at all.
+function parseOldFormat(workbook, errors, warnings) {
   const dataSheetName = findRawDataSheetName(workbook);
-  if (!dataSheetName) {
-    errors.push({
-      message: `Couldn't find the data sheet (expected "${RAW_DATA_SHEET_NAME}", or any sheet whose first column is "Week"). Found sheets: ${workbook.SheetNames.join(", ")}.`,
-    });
-    return { ok: false, errors, warnings, preview: [], departments: {}, counterOverride };
-  }
+  if (!dataSheetName) return null;
 
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets[dataSheetName], { header: 1, defval: null, raw: true });
   const row1 = rows[0] ?? [];
@@ -177,8 +164,6 @@ function parseWorkbook(buffer) {
   const totalCols = Math.max(row1.length, row2.length);
   const groups = walkColumnGroups(row1, row2, totalCols);
 
-  // Resolve every group to a catalog metric up front, so we know which raw
-  // "Value" columns to use for finding the last reported week.
   const resolved = [];
   for (const group of groups) {
     if (group.cols.length === 0) continue;
@@ -203,8 +188,12 @@ function parseWorkbook(buffer) {
   const lastRow = findLastReportedRowIndex(rows, anchorColumns);
   if (lastRow === -1) {
     errors.push({ message: `Found the data sheet ("${dataSheetName}") but couldn't find any reported week — every value column is blank.` });
-    return { ok: false, errors, warnings, preview: [], departments: {}, counterOverride };
+    return { metricsByDept: null };
   }
+
+  warnings.push({
+    message: `This file uses the older workbook template — it still imports correctly, but "Download Excel" now produces a newer format (a "Graphs" + "Data" sheet pair). Re-download and re-save from there when convenient.`,
+  });
 
   const firstRow = Math.max(2, lastRow - WEEK_COUNT + 1);
   const rowIndices = [];
@@ -238,8 +227,6 @@ function parseWorkbook(buffer) {
 
       metricsByDept[mapping.department].push({ ...catalogMetric, series, goalSeries, goal });
     } else {
-      // "multi" and "multiWithGoal" both build a per-week object keyed by
-      // our internal series names.
       const seriesValues = {};
       for (const [subLabel, ourKey] of Object.entries(mapping.seriesMap)) {
         const col = findColumnBySubLabel(group.cols, subLabel);
@@ -276,11 +263,118 @@ function parseWorkbook(buffer) {
     foundSlugs[mapping.department].add(catalogMetric.slug);
   }
 
-  // Any catalog metric this workbook didn't touch keeps whatever sparse data
-  // is currently active, rather than disappearing or reverting to bare seed.
-  // Pulled straight from sparse storage (not re-aligned to this upload's
-  // week window) since the metric's real data may span an entirely
-  // different date range than this workbook's rows.
+  return { metricsByDept, foundSlugs, weekLabels, weekEndings, dataSheetName };
+}
+
+// ============================================================
+// NEW canonical format (Phase 8) — metrics as ROWS, weeks as COLUMNS. See
+// shared schema constants in xlsxSchema.js: exportService.js/the Python
+// chart-writer WRITE this shape, this is the one place that READS it back.
+// ============================================================
+
+function isBlankRow(row) {
+  return !row || row.every((cell) => cell === null || cell === undefined || cell === "");
+}
+
+function parseCanonicalFormat(workbook, errors, warnings) {
+  if (!workbook.SheetNames.includes(DATA_SHEET)) return null;
+  const sheet = workbook.Sheets[DATA_SHEET];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+  const header = (rows[0] ?? []).map((h) => (h === null || h === undefined ? "" : String(h).trim()));
+  if (header[0] !== FIXED_COLUMNS[0]) return null; // doesn't look like our canonical header — let the old-format parser try
+
+  const weekEndings = header.slice(FIXED_COLUMNS.length).filter((h) => h !== "");
+  const weekLabels = weekEndings.map((iso) => formatWeekLabel(new Date(`${iso}T00:00:00Z`)));
+
+  const dataRows = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (isBlankRow(row)) break; // the separator before #meta ends the data block
+    if (String(row[0] ?? "").trim() === META_MARKER) break;
+    dataRows.push(row);
+  }
+
+  const bySlug = new Map();
+  for (const row of dataRows) {
+    const [slug, , department, series, rowType] = row;
+    if (!slug) continue;
+    if (!bySlug.has(slug)) bySlug.set(slug, { department, entries: [] });
+    bySlug.get(slug).entries.push({
+      series: series ? String(series).trim() : "",
+      rowType: String(rowType ?? "").trim().toLowerCase(),
+      values: row.slice(FIXED_COLUMNS.length, FIXED_COLUMNS.length + weekEndings.length),
+    });
+  }
+
+  const metricsByDept = { sales: [], inventory: [], finance: [], operations: [] };
+  const foundSlugs = { sales: new Set(), inventory: new Set(), finance: new Set(), operations: new Set() };
+
+  for (const [slug, { department, entries }] of bySlug) {
+    if (!DEPARTMENT_KEYS.includes(department)) {
+      warnings.push({ message: `Row for "${slug}" has an unknown department "${department}" — skipped.` });
+      continue;
+    }
+    const catalogMetric = repository.getSeedCatalog(department)?.METRICS.find((m) => m.slug === slug);
+    if (!catalogMetric) {
+      warnings.push({ department, message: `"${slug}" isn't a known metric — skipped.` });
+      continue;
+    }
+
+    const context = { department, heading: catalogMetric.name };
+    const seriesKeys = catalogMetric.stackKeys || catalogMetric.groupKeys;
+
+    if (!seriesKeys) {
+      const valueEntry = entries.find((e) => e.rowType === "value");
+      const goalEntry = entries.find((e) => e.rowType === "goal");
+      const series = (valueEntry?.values ?? weekEndings.map(() => null)).map((v, i) =>
+        toNumberOrNull(v, errors, { ...context, subLabel: "value", week: weekLabels[i] })
+      );
+      const goalSeries = goalEntry
+        ? goalEntry.values.map((v, i) => toNumberOrNull(v, errors, { ...context, subLabel: "goal", week: weekLabels[i] }))
+        : catalogMetric.goalSeries;
+      const goal = goalSeries ? goalSeries[goalSeries.length - 1] : catalogMetric.goal;
+      metricsByDept[department].push({ ...catalogMetric, series, goalSeries, goal });
+    } else {
+      const seriesValues = {};
+      let anyGoalEntry = null;
+      for (const key of seriesKeys) {
+        const valueEntry = entries.find((e) => e.series === key && e.rowType === "value");
+        if (!valueEntry) {
+          warnings.push({ department, message: `"${catalogMetric.name}" is missing its "${key}" row — that series will show no data.` });
+          seriesValues[key] = weekEndings.map(() => null);
+        } else {
+          seriesValues[key] = valueEntry.values.map((v, i) => toNumberOrNull(v, errors, { ...context, subLabel: key, week: weekLabels[i] }));
+        }
+        anyGoalEntry = anyGoalEntry || entries.find((e) => e.series === key && e.rowType === "goal");
+      }
+      const series = weekEndings.map((_, i) => {
+        const point = {};
+        for (const key of seriesKeys) point[key] = seriesValues[key][i];
+        return point;
+      });
+      const metric = { ...catalogMetric, series };
+      if (anyGoalEntry) {
+        const goalSeries = anyGoalEntry.values.map((v, i) => toNumberOrNull(v, errors, { ...context, subLabel: "goal", week: weekLabels[i] }));
+        metric.goalSeries = goalSeries;
+        metric.goal = goalSeries[goalSeries.length - 1];
+      }
+      metricsByDept[department].push(metric);
+    }
+
+    foundSlugs[department].add(slug);
+  }
+
+  return { metricsByDept, foundSlugs, weekLabels, weekEndings, dataSheetName: DATA_SHEET };
+}
+
+// ============================================================
+// Format-agnostic tail — percent sanity check, diff preview, sparse
+// conversion, "kept previous data" for untouched metrics. Runs identically
+// no matter which parser above produced its input, so the two formats can
+// never drift in how a value actually reaches storage.
+// ============================================================
+
+function finishParse({ metricsByDept, foundSlugs, weekLabels, weekEndings, dataSheetName }, errors, warnings, counterOverride) {
   const keptSparseByDept = { sales: [], inventory: [], finance: [], operations: [] };
   for (const departmentKey of DEPARTMENT_KEYS) {
     const sparseCurrentSource = repository.getSparseDepartmentData(departmentKey);
@@ -292,7 +386,6 @@ function parseWorkbook(buffer) {
     }
   }
 
-  // Percent sanity range check (values should be fractions: 0.49, not 49).
   for (const departmentKey of DEPARTMENT_KEYS) {
     for (const metric of metricsByDept[departmentKey]) {
       if (metric.format !== "percent" && metric.chartType !== "percentBar") continue;
@@ -309,10 +402,17 @@ function parseWorkbook(buffer) {
     }
   }
 
-  // Diff preview vs. whatever is currently active, matched by week label.
+  // Compared over the SAME span the upload actually covers, matched by ISO
+  // weekEnding (never by display label): a bare no-range getDepartmentData()
+  // call only returns its own default ~12-week window, which would silently
+  // miss (never flag) an edit anywhere outside it — invisible with the old
+  // format's narrow 10-week uploads, but very real once a workbook can cover
+  // the full multi-year history. Labels are also ambiguous across a
+  // multi-year span (repository.js drops the year suffix within one
+  // calendar year, adds it back across several) — ISO dates never are.
   const preview = [];
   for (const departmentKey of DEPARTMENT_KEYS) {
-    const currentData = repository.getDepartmentData(departmentKey);
+    const currentData = repository.getDepartmentData(departmentKey, { from: weekEndings[0], to: weekEndings[weekEndings.length - 1] });
     let changedCount = 0;
     const examples = [];
 
@@ -321,8 +421,8 @@ function parseWorkbook(buffer) {
       if (!currentMetric) continue;
       const seriesKeys = metric.stackKeys || metric.groupKeys;
 
-      weekLabels.forEach((week, i) => {
-        const oldIndex = currentData.WEEKS.indexOf(week);
+      weekEndings.forEach((iso, i) => {
+        const oldIndex = currentData.WEEK_ENDINGS.indexOf(iso);
         if (oldIndex === -1) return;
         const oldRaw = currentMetric.series[oldIndex];
         const newRaw = metric.series[i];
@@ -331,7 +431,7 @@ function parseWorkbook(buffer) {
         const bothEmpty = seriesKeys ? isEmptyGroup(oldRaw, seriesKeys) && isEmptyGroup(newRaw, seriesKeys) : oldRaw == null && newRaw == null;
         if (oldValue !== newValue && !bothEmpty) {
           changedCount++;
-          if (examples.length < 5) examples.push({ slug: metric.slug, week, oldValue: oldRaw, newValue: newRaw });
+          if (examples.length < 5) examples.push({ slug: metric.slug, week: weekLabels[i], oldValue: oldRaw, newValue: newRaw });
         }
       });
     }
@@ -346,10 +446,6 @@ function parseWorkbook(buffer) {
     });
   }
 
-  // Persisted storage is sparse (ISO weekEnding -> value) — see
-  // server/data/sparseFormat.js. This upload's own rows convert from
-  // positional via the real per-row dates; metrics kept from the previous
-  // snapshot are already sparse and pass through untouched.
   const departments = {};
   if (errors.length === 0) {
     for (const departmentKey of DEPARTMENT_KEYS) {
@@ -364,6 +460,50 @@ function parseWorkbook(buffer) {
   }
 
   return { ok: errors.length === 0, errors, warnings, preview, departments, counterOverride };
+}
+
+function parseWorkbook(buffer) {
+  let workbook;
+  try {
+    workbook = XLSX.read(buffer, { type: "buffer" });
+  } catch (err) {
+    return {
+      ok: false,
+      errors: [{ message: `Could not read the file — is it a valid .xlsx workbook? (${err.message})` }],
+      warnings: [],
+      preview: [],
+      departments: {},
+      counterOverride: null,
+    };
+  }
+
+  const errors = [];
+  const warnings = [];
+
+  const counterOverride = workbook.SheetNames.includes(COUNTER_SHEET)
+    ? parseCounterSheet(workbook.Sheets[COUNTER_SHEET], warnings)
+    : null;
+
+  // Graphs (Phase 8) carries no data of its own — native charts only, always
+  // ignored on import regardless of which format matched.
+  void GRAPHS_SHEET;
+
+  const canonical = parseCanonicalFormat(workbook, errors, warnings);
+  if (canonical) {
+    if (!canonical.metricsByDept) return { ok: false, errors, warnings, preview: [], departments: {}, counterOverride };
+    return finishParse(canonical, errors, warnings, counterOverride);
+  }
+
+  const old = parseOldFormat(workbook, errors, warnings);
+  if (old) {
+    if (!old.metricsByDept) return { ok: false, errors, warnings, preview: [], departments: {}, counterOverride };
+    return finishParse(old, errors, warnings, counterOverride);
+  }
+
+  errors.push({
+    message: `Couldn't find a recognizable data sheet (expected a "${DATA_SHEET}" sheet, or "${RAW_DATA_SHEET_NAME}"/any sheet whose first column is "Week"). Found sheets: ${workbook.SheetNames.join(", ")}.`,
+  });
+  return { ok: false, errors, warnings, preview: [], departments: {}, counterOverride };
 }
 
 // ---- pending uploads (parsed-but-not-applied) ----
@@ -412,6 +552,7 @@ function applyUpload(uploadId, note) {
 }
 
 module.exports = {
+  parseWorkbook,
   receiveUpload,
   applyUpload,
   listVersions: snapshotService.listVersions,

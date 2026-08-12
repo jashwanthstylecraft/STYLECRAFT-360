@@ -107,8 +107,14 @@ function buildLevelArea(card, range) {
   });
 }
 
-function buildMonthHeatmap(card) {
-  const range = { from: sharedRegistry.CALENDAR_START, to: sharedRegistry.CALENDAR_END };
+// `visibleFrom` is the Settings-page visibility floor (see
+// client/src/utils/dataVisibility.js) — this card ignores the normal
+// from/to range on purpose (it always wants full real history), so
+// visibleFrom is the one way to tell it "hide before this date too."
+// Nothing about the underlying stored data changes either way.
+function buildMonthHeatmap(card, visibleFrom) {
+  const from = visibleFrom && visibleFrom > sharedRegistry.CALENDAR_START ? visibleFrom : sharedRegistry.CALENDAR_START;
+  const range = { from, to: sharedRegistry.CALENDAR_END };
   const { data, metric } = findMetric(card.department, card.metricSlug, range);
 
   const cells = data.weekEndings.map((weekEnding, i) => {
@@ -178,9 +184,13 @@ const BUILDERS = {
   VarianceColumns: buildScoreboard,
 };
 
-function getHomeInsights(range) {
+function getHomeInsights({ from, to, visibleFrom } = {}) {
+  const range = { from, to };
   const cards = sharedRegistry.HOME_INSIGHTS.map((card) => {
     const builder = BUILDERS[card.chart];
+    // MonthHeatmap ignores `range` on purpose (see buildMonthHeatmap) — it
+    // takes visibleFrom instead, the only thing that should ever narrow it.
+    const data = !builder ? null : card.chart === "MonthHeatmap" ? builder(card, visibleFrom) : builder(card, range);
     return {
       key: card.key,
       title: card.title,
@@ -188,7 +198,7 @@ function getHomeInsights(range) {
       chart: card.chart,
       department: card.department ?? null,
       metricSlug: card.metricSlug ?? null,
-      data: builder ? builder(card, range) : null,
+      data,
     };
   });
   return { cards };

@@ -1,5 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { useDataStatus } from "./useDataStatus";
+import { useVisibilityFloor } from "./useVisibilityFloor";
+import { applyVisibilityFloor } from "../utils/dataVisibility";
 import { PRESETS, rangeForPreset } from "../utils/datePresets";
 import { formatWeekEndingLabel } from "../utils/weekCalendar";
 
@@ -12,6 +14,7 @@ export function useDateRange() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: status } = useDataStatus();
   const anchor = status?.latestDataWeekEnding ?? null;
+  const floor = useVisibilityFloor();
 
   const from = searchParams.get("from");
   const to = searchParams.get("to");
@@ -35,7 +38,13 @@ export function useDateRange() {
     setSearchParams(params, { replace: true });
   }
 
-  return { preset, from: resolved?.from ?? null, to: resolved?.to ?? null, anchor, setPreset };
+  return {
+    preset,
+    from: applyVisibilityFloor(resolved?.from ?? null, floor),
+    to: resolved?.to ?? null,
+    anchor,
+    setPreset,
+  };
 }
 
 export function useDateRangeLabel() {

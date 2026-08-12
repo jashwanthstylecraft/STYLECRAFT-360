@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Download, AlertTriangle } from "lucide-react";
+import { Download, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import UploadDropzone from "../components/data/UploadDropzone";
 import ValidationReport from "../components/data/ValidationReport";
 import DiffPreview from "../components/data/DiffPreview";
 import VersionHistoryList from "../components/data/VersionHistoryList";
 import SampleDataBadge from "../components/data/SampleDataBadge";
+import ExportExcelDialog from "../components/data/ExportExcelDialog";
 import { useDataStatus } from "../hooks/useDataStatus";
 import { useDataVersions } from "../hooks/useDataVersions";
+import { invalidateAllDataQueries } from "../hooks/dataQueryKeys";
 import { uploadDataFile, applyDataUpload, restoreDataVersion, TEMPLATE_DOWNLOAD_URL } from "../services/api";
 
 function PageHeader({ isSampleData }) {
@@ -35,15 +37,10 @@ export default function DataUpload() {
   const [applyError, setApplyError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   function invalidateEverything() {
-    queryClient.invalidateQueries({ queryKey: ["sales-metrics"] });
-    queryClient.invalidateQueries({ queryKey: ["inventory-metrics"] });
-    queryClient.invalidateQueries({ queryKey: ["finance-metrics"] });
-    queryClient.invalidateQueries({ queryKey: ["operations-metrics"] });
-    queryClient.invalidateQueries({ queryKey: ["home-summary"] });
-    queryClient.invalidateQueries({ queryKey: ["data-status"] });
-    queryClient.invalidateQueries({ queryKey: ["data-versions"] });
+    invalidateAllDataQueries(queryClient);
   }
 
   async function handleFileSelected(file) {
@@ -116,14 +113,28 @@ export default function DataUpload() {
             </>
           )}
         </div>
-        <a
-          href={TEMPLATE_DOWNLOAD_URL}
-          className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-heading shadow-sm hover:bg-surface-hover"
-        >
-          <Download size={15} />
-          Download template
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExportDialog(true)}
+            className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
+              <FileSpreadsheet size={15} />
+              Download Excel
+            </span>
+            <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
+          </button>
+          <a
+            href={TEMPLATE_DOWNLOAD_URL}
+            className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-heading shadow-sm hover:bg-surface-hover"
+          >
+            <Download size={15} />
+            Download template
+          </a>
+        </div>
       </div>
+
+      {showExportDialog && <ExportExcelDialog onClose={() => setShowExportDialog(false)} />}
 
       {successMessage && (
         <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-positive dark:border-green-500/30 dark:bg-green-500/10">{successMessage}</div>

@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Home, ChevronsLeft, ChevronsRight, X, UploadCloud, PencilLine } from "lucide-react";
+import { Home, ChevronsLeft, ChevronsRight, X, UploadCloud, PencilLine, Settings } from "lucide-react";
 import { DEPARTMENTS } from "../../config/departments";
 
 function NavItem({ to, label, Icon, enabled, collapsed, onNavigate }) {
@@ -100,6 +100,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCl
           <div className="mb-2 border-t border-white/10" />
           <NavItem to="/data-entry" label="Data Entry" Icon={PencilLine} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
           <NavItem to="/data" label="Data" Icon={UploadCloud} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
+          <NavItem to="/settings" label="Settings" Icon={Settings} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
         </div>
 
         {!collapsed && (

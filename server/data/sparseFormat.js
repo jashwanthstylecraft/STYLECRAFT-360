@@ -38,6 +38,23 @@ function isEmptyPoint(v) {
   return Object.values(v).every((x) => x === null || x === undefined);
 }
 
+// The same "missing key, not a null value" rule applies WITHIN a partially-
+// reported point too — e.g. a metric whose two series started being tracked
+// on different dates can have a real early week like {backorder: 0} with no
+// `preorder` key at all yet. A positional array can't represent "this one
+// sub-series wasn't reported" any way other than null, so toSparse must
+// strip those nulls back out rather than writing them as if they were real
+// (round-tripping such a week through export/re-import would otherwise turn
+// "not yet tracked" into a phantom explicit null forever).
+function stripNullSubKeys(v) {
+  if (v === null || v === undefined || typeof v !== "object") return v;
+  const cleaned = {};
+  for (const [key, value] of Object.entries(v)) {
+    if (value !== null && value !== undefined) cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 // The inverse — given a positional metric and the weekEnding each array
 // index corresponds to, builds the sparse map (skipping null/missing
 // positions, since those aren't "data," they're absence of data).
@@ -47,7 +64,7 @@ function toSparse(positionalMetric, weekEndings) {
 
   weekEndings.forEach((iso, i) => {
     const v = positionalMetric.series?.[i];
-    if (!isEmptyPoint(v)) values[iso] = v;
+    if (!isEmptyPoint(v)) values[iso] = stripNullSubKeys(v);
     const g = positionalMetric.goalSeries?.[i];
     if (g !== null && g !== undefined) goals[iso] = g;
   });
