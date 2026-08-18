@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { Moon, Sun, Check, AlertTriangle, EyeOff } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useCounter } from "../hooks/useCounter";
 import { getReducedMotionOverride, setReducedMotionOverride } from "../hooks/usePrefersReducedMotion";
 import { getVisibilityFloor, setVisibilityFloor } from "../utils/dataVisibility";
 import { snapToNearestWeekEnding } from "../utils/datePresets";
 import { CALENDAR_START, CALENDAR_END, formatWeekEndingLabel } from "../utils/weekCalendar";
-import { setCounterTotal } from "../services/api";
+import { setCounterTotal, fetchUsers, addUser, removeUser, resetUserPassword } from "../services/api";
 
 function SettingsSection({ title, description, children }) {
   return (
@@ -246,7 +247,192 @@ function CounterSection() {
   );
 }
 
+function TeamSection() {
+  const [users, setUsers] = useState(null);
+  const [error, setError] = useState(null);
+  const [newUsername, setNewUsername] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetTarget, setResetTarget] = useState(null); // username currently being reset
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+
+  const refresh = useCallback(() => {
+    fetchUsers()
+      .then((data) => setUsers(data.users))
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await addUser({ username: newUsername, name: newName, password: newPassword });
+      setNewUsername("");
+      setNewName("");
+      setNewPassword("");
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRemove(username) {
+    setError(null);
+    try {
+      await removeUser(username);
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleResetPassword(username) {
+    if (!resetPasswordValue) return;
+    setError(null);
+    try {
+      await resetUserPassword(username, resetPasswordValue);
+      setResetTarget(null);
+      setResetPasswordValue("");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Team"
+      description="Admins (you and Mark) can edit and save anything. Viewers can only look at dashboards — Data Entry, Data, and this Team panel are hidden for them."
+    >
+      <div className="mb-4 space-y-2">
+        {users === null && <div className="text-sm text-ink-muted">Loading…</div>}
+        {users?.map((u) => (
+          <div key={u.username} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-ink">{u.name}</div>
+              <div className="truncate text-xs text-ink-muted">
+                {u.username} · <span className="capitalize">{u.role}</span>
+              </div>
+            </div>
+            {u.role === "viewer" && (
+              <div className="flex shrink-0 items-center gap-2">
+                {resetTarget === u.username ? (
+                  <>
+                    <input
+                      type="password"
+                      autoFocus
+                      value={resetPasswordValue}
+                      onChange={(e) => setResetPasswordValue(e.target.value)}
+                      placeholder="New password"
+                      className="w-36 rounded-lg border border-surface-border bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-actual focus:outline-none"
+                    />
+                    <button
+                      onClick={() => handleResetPassword(u.username)}
+                      disabled={!resetPasswordValue}
+                      className="rounded-lg bg-actual px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setResetTarget(null);
+                        setResetPasswordValue("");
+                      }}
+                      className="rounded-lg border border-surface-border px-3 py-1.5 text-sm text-ink-secondary hover:bg-surface-hover"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setResetTarget(u.username)}
+                      className="rounded-md p-1.5 text-ink-secondary hover:bg-surface-hover"
+                      title="Reset password"
+                      aria-label={`Reset password for ${u.name}`}
+                    >
+                      <KeyRound size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleRemove(u.username)}
+                      className="rounded-md p-1.5 text-negative hover:bg-surface-hover"
+                      title="Remove"
+                      aria-label={`Remove ${u.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[160px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Name</label>
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="e.g. Jamie"
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+            required
+          />
+        </div>
+        <div className="min-w-[200px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Username / email</label>
+          <input
+            type="text"
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value)}
+            placeholder="jamie@stylecraftus.com"
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+            required
+          />
+        </div>
+        <div className="min-w-[160px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Password</label>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex items-center gap-1.5 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <UserPlus size={15} />
+          Add viewer
+        </button>
+      </form>
+    </SettingsSection>
+  );
+}
+
 export default function Settings() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   return (
     <PageShell lastUpdated={null}>
       <div className="mb-6">
@@ -258,7 +444,8 @@ export default function Settings() {
         <AppearanceSection />
         <MotionSection />
         <DataVisibilitySection />
-        <CounterSection />
+        {isAdmin && <CounterSection />}
+        {isAdmin && <TeamSection />}
       </div>
     </PageShell>
   );

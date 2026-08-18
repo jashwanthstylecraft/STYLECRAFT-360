@@ -15,6 +15,10 @@ with a live, responsive web app while preserving the report's structure
 - **Phase 3** added the live **Lifetime Units Sold** counter, the real **360
   View** home page, the **XLSX upload pipeline** (real data now drives every
   chart), and per-department **entrance/chart-draw animations**.
+- **Phase 9** added real **authentication**: username/password login, an
+  **admin** role (edit anything) and a **viewer** role (dashboards only —
+  Data Entry, Data, Excel export, and the Team panel are hidden and blocked
+  server-side). See [Authentication](#authentication) below.
 
 ## Stack
 
@@ -32,6 +36,9 @@ with a live, responsive web app while preserving the report's structure
   can't create chart objects, so this is spawned as a child process
   (`PYTHON_BIN` env var, default `python`) rather than replacing the Node
   stack. Must be installed on any host serving that endpoint.
+- **Auth**: `jsonwebtoken` + `bcryptjs` + `cookie-parser`. Stateless — a JWT
+  in an httpOnly cookie, no session store, no database. See
+  [Authentication](#authentication).
 
 ## Project structure
 
@@ -51,30 +58,36 @@ stylecraft-360/
 │   │   │   └── data/       # UploadDropzone, ValidationReport, DiffPreview,
 │   │   │                   # VersionHistoryList, SampleDataBadge
 │   │   ├── config/         # departments.js — sidebar/routing registry
+│   │   ├── contexts/       # ThemeContext, AuthContext (current user + login/logout)
 │   │   ├── lib/motion.js   # shared easing/stagger + per-department motion tables
-│   │   ├── pages/          # Home360, Sales, Inventory, Finance, Operations, DataUpload, MetricDetail
+│   │   ├── pages/          # Login, Home360, Sales, Inventory, Finance, Operations, DataUpload, MetricDetail, Settings
 │   │   ├── services/api.js # the only place that knows how data is fetched
 │   │   ├── hooks/          # use<Dept>Metrics, useCounter, useHomeSummary,
 │   │   │                   # useDataStatus/Versions, useDataUpdatesListener, usePrefersReducedMotion
 │   │   └── utils/          # format.js (currency/percent/decimal/count), theme.js (chart colors)
 └── server/
-    ├── routes/              # sales/inventory/finance/operations, counter.js, home.js, data.js
+    ├── app.js               # builds the Express app (routes + middleware) without listening — testable via supertest
+    ├── index.js             # awaits the shared registry, then app.listen()
+    ├── routes/              # sales/inventory/finance/operations, counter.js, home.js, data.js,
+    │                        # entry.js, auth.js (login/logout/me), users.js (Team panel, admin-only)
+    ├── middleware/auth.js   # requireAuth (JWT cookie -> req.user) / requireRole("admin")
+    ├── scripts/reset-password.js  # break-glass CLI account recovery
     ├── services/
     │   ├── metricsHelpers.js   # shared attainment/WoW/result-series math (Phase 2+ services)
     │   ├── salesService.js     # Phase 1 — math untouched, now sources data via repository.js
     │   ├── inventoryService.js / financeService.js / operationsService.js
     │   ├── homeService.js      # headline metric + health score per department
     │   ├── counterService.js   # file-backed counter state + SSE + demo heartbeat
+    │   ├── userService.js      # file-backed users.json — verify/list/add/remove/reset (Phase 9)
     │   ├── uploadService.js    # XLSX parse/validate/apply/version/restore
     │   ├── templateService.js  # generates the pre-filled download-template workbook
     │   └── sseHub.js           # tiny pub/sub used by both counter and data SSE streams
-    ├── data/
-    │   ├── seed/            # *Seed.js — placeholder data AND the structural catalog
-    │   │                    # the XLSX parser merges uploaded numbers into
-    │   ├── repository.js    # seed-vs-uploaded-snapshot resolution (read fresh every call)
-    │   ├── state/counter.json     # persisted counter total (file-backed for now)
-    │   └── uploads/*.json, active.json  # versioned snapshots + the "current" pointer
-    └── middleware/auth.js   # Phase 1 stub, wired for Phase 4 role checks
+    └── data/
+        ├── seed/            # *Seed.js — placeholder data AND the structural catalog
+        │                    # the XLSX parser merges uploaded numbers into
+        ├── repository.js    # seed-vs-uploaded-snapshot resolution (read fresh every call)
+        ├── state/counter.json, users.json  # persisted counter + accounts (both file-backed, both gitignored)
+        └── uploads/*.json, active.json  # versioned snapshots + the "current" pointer
 ```
 
 ## Setup
@@ -84,6 +97,7 @@ Requires Node.js 18+.
 ```bash
 npm run install:all   # installs server/ and client/ dependencies
 pip install -r server/requirements.txt   # openpyxl, for Excel export's native charts
+cp server/.env.example server/.env    # then set SESSION_SECRET to a real random value
 npm run dev:all       # runs API (localhost:4000) + client (localhost:5173)
 ```
 
@@ -103,19 +117,27 @@ Set `DEMO_COUNTER=false` to disable it and drive the counter only via real
 
 ## API endpoints
 
+Every route below requires a logged-in session except `/api/auth/*` and
+`/api/health`; routes marked **admin** additionally require the `admin` role
+(a viewer gets `403`). See [Authentication](#authentication).
+
 | Endpoint | Purpose |
 |---|---|
+| `POST /api/auth/login` `{username, password}` · `POST /api/auth/logout` · `GET /api/auth/me` | Log in/out, restore session on page load |
+| `GET /api/users` · `POST /api/users` `{username, name, password}` · `DELETE /api/users/:username` · `POST /api/users/:username/reset-password` **(admin)** | The Team panel — manage viewer accounts. Can't create/remove admins. |
 | `GET /api/sales\|inventory\|finance\|operations/metrics?range=last10weeks` | Per-department metrics (unchanged shape from Phase 1/2, now `+isSampleData`) |
 | `GET /api/home/summary` | Counter total + each department's headline metric + health score |
-| `GET /api/counter` · `POST /api/counter/increment` `{units}` · `PUT /api/counter` `{total}` | Read / bump / admin-override the lifetime counter |
+| `GET /api/counter` | Read the lifetime total (any logged-in user) |
+| `POST /api/counter/increment` `{units}` · `PUT /api/counter` `{total}` **(admin)** | Bump / override the lifetime counter |
 | `GET /api/counter/stream` | SSE — pushes `{total, asOf}` on every change |
-| `GET /api/data/status` | `{isSampleData, active}` — drives the sample-data badge |
-| `GET /api/data/template` | Downloads a workbook pre-filled with the current active data |
-| `POST /api/data/upload` (multipart `file`) | Parses + validates only — returns `{uploadId, ok, errors, warnings, preview}`, never applies |
-| `POST /api/data/apply` `{uploadId, note}` | Commits a previously-uploaded, error-free parse as the new active snapshot |
-| `GET /api/data/versions` · `POST /api/data/versions/:file/restore` | List / roll back to a prior snapshot (last 20 kept) |
-| `GET /api/data/stream` | SSE — broadcasts `data-updated` on every apply/restore |
-| `GET /api/export/excel?from=&to=` | Streams `StyleCraft360_Data_<date>_<time>.xlsx` — `Graphs` (native charts, one per metric) + `Data` (canonical, round-trippable) sheets for the active snapshot. Omit `from`/`to` for the full first-to-last-data range. |
+| `GET /api/data/status` | `{isSampleData, active, latestDataWeekEnding}` — every dashboard's date-range anchor, so this stays open to viewers too |
+| `GET /api/data/stream` | SSE — broadcasts `data-updated` on every apply/restore, so viewer dashboards refresh live too |
+| `GET /api/data/template` **(admin)** | Downloads a workbook pre-filled with the current active data |
+| `POST /api/data/upload` (multipart `file`) **(admin)** | Parses + validates only — returns `{uploadId, ok, errors, warnings, preview}`, never applies |
+| `POST /api/data/apply` `{uploadId, note}` **(admin)** | Commits a previously-uploaded, error-free parse as the new active snapshot |
+| `GET /api/data/versions` · `POST /api/data/versions/:file/restore` **(admin)** | List / roll back to a prior snapshot (last 20 kept) |
+| `GET /api/entry`, `/api/entry/coverage` · `PUT /api/entry/week/:weekEnding` **(admin, whole router)** | Data Entry — viewers get `403` on every route here, GET included |
+| `GET /api/export/excel?from=&to=` **(admin)** | Streams `StyleCraft360_Data_<date>_<time>.xlsx` — `Graphs` (native charts, one per metric) + `Data` (canonical, round-trippable) sheets for the active snapshot. Omit `from`/`to` for the full first-to-last-data range. |
 
 Every department response has the same shape as before:
 `{ asOf, weeks, metrics, summary, isSampleData }`.
@@ -234,20 +256,42 @@ no shared component ever needs to change:
 - An XLSX upload is validated fully before anything is written — never a
   partial apply, never a silently-accepted bad cell.
 
-## ⚠️ Security note before wider rollout
+## Authentication
 
-**The `/data` upload page has no authentication.** Anyone who can reach the
-app can overwrite every department's numbers and the lifetime counter. This
-is acceptable only while the app is unreleased/internal-preview; before wider
-rollout, lock `/api/data/*` (at minimum upload/apply/restore) behind real
-auth — `server/middleware/auth.js` and `<ProtectedRoute>` are already wired
-as pass-through stubs for exactly this in Phase 4.
+Every page and API route requires a login (`server/app.js` applies
+`requireAuth` globally except `/api/auth/*`). Two roles:
+
+- **admin** — can edit anything: Data Entry, Data (upload/apply/restore/
+  template/export), the counter override, and the Team panel. Not
+  self-service creatable — only ever seeded directly into `users.json`.
+- **viewer** — dashboards only (Home, Sales, Inventory, Finance, Operations,
+  metric detail). Data Entry, Data, Excel export, and Settings' Counter/Team
+  sections are hidden client-side **and** blocked server-side (`403`, not
+  just a disabled button) — see the role table in
+  [API endpoints](#api-endpoints).
+
+**Accounts** live in `server/data/state/users.json` (gitignored — real
+password hashes, never committed), modeled on `counterService.js`'s
+file-backed pattern. Two admins are seeded on first boot
+(`server/services/userService.js`); admins add/remove **viewer** accounts and
+reset their passwords through Settings → Team (`POST/DELETE /api/users`),
+with no code change needed. If both admins are ever locked out, recover with
+the break-glass CLI: `node server/scripts/reset-password.js <username> <newPassword>`.
+
+**Session**: a stateless JWT in an httpOnly `sameSite=lax` cookie, signed
+with `SESSION_SECRET` (`server/.env`, see `server/.env.example`) — no
+session store, no database. If `SESSION_SECRET` is unset, the server
+generates one in memory at boot and logs a warning; that works for local
+dev, but **every restart invalidates every session** until a real secret is
+set.
+
+⚠️ **Change the seeded admin passwords before any real deployment.** They
+were set to a weak placeholder value during initial setup at the user's
+explicit request. The Team panel only manages viewer accounts — reset an
+admin's own password with the CLI above.
 
 ## What's stubbed for later phases
 
-- Authentication: `server/middleware/auth.js` and `client/src/components/layout/ProtectedRoute.jsx`
-  are pass-through today; Phase 4 wires real checks into them without changing
-  call sites. See the security note above.
 - Customer Service, Marketing, and Manufacturing are visible in the sidebar
   and on the 360 home page with a "Coming soon" treatment.
 - Metric detail drill-down (`/<dept>/:metricSlug`) is a placeholder route for

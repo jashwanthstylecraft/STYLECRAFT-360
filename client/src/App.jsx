@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
+import Login from "./pages/Login";
 import Home360 from "./pages/Home360";
 import Sales from "./pages/Sales";
 import Inventory from "./pages/Inventory";
@@ -16,7 +17,15 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Home360 />} />
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Home360 />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/sales"
         element={
@@ -84,7 +93,7 @@ export default function App() {
       <Route
         path="/data"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireRole="admin">
             <DataUpload />
           </ProtectedRoute>
         }
@@ -92,7 +101,7 @@ export default function App() {
       <Route
         path="/data-entry"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireRole="admin">
             <DataEntry />
           </ProtectedRoute>
         }

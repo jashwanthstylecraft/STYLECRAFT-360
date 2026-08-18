@@ -1,5 +1,6 @@
 const express = require("express");
 const counterService = require("../services/counterService");
+const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.get("/stream", (req, res) => {
   counterService.subscribe(req, res);
 });
 
-router.post("/increment", (req, res) => {
+router.post("/increment", requireRole("admin"), (req, res) => {
   const { units } = req.body || {};
   try {
     const state = counterService.increment(units);
@@ -22,7 +23,7 @@ router.post("/increment", (req, res) => {
   }
 });
 
-router.put("/", (req, res) => {
+router.put("/", requireRole("admin"), (req, res) => {
   const { total } = req.body || {};
   try {
     const state = counterService.setTotal(total);

@@ -77,26 +77,32 @@ export function cardMotionProps(variantName, index, reduceMotion) {
   };
 }
 
-// Recharts animation config per department — one duration/easing pair, plus
-// an optional stagger between a chart's two series (paid-then-unpaid,
-// requested-then-completed).
+// Recharts animation config per department — duration/easing, an optional
+// stagger between a chart's two SERIES (paid-then-unpaid, requested-then-
+// completed), and an optional stagger BETWEEN BARS within one series
+// (`barStagger`, ms) so a chart's own draw-in echoes its department's card-
+// entrance identity: Inventory's cards slide in from the left, so its bars
+// cascade left-to-right too; Operations is the most kinetic page (alternating
+// card directions), so its bars ripple in fast; Sales and Finance stay calm —
+// every bar rises together, matching their single-direction card entrances.
 export const CHART_MOTION = {
-  sales: { duration: 700, easing: "ease-out", seriesStagger: 0 },
-  inventory: { duration: 700, easing: "ease-out", seriesStagger: 220 },
-  finance: { duration: 900, easing: "ease-out", seriesStagger: 0 },
-  operations: { duration: 600, easing: "ease-out", seriesStagger: 180 },
-  home: { duration: 500, easing: "ease-out", seriesStagger: 0 },
+  sales: { duration: 700, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
+  inventory: { duration: 700, easing: "ease-in-out", seriesStagger: 220, barStagger: 40 },
+  finance: { duration: 900, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
+  operations: { duration: 600, easing: "ease-out", seriesStagger: 180, barStagger: 25 },
+  home: { duration: 500, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
 };
 
 export function chartMotionProps(departmentKey, reduceMotion) {
   const config = CHART_MOTION[departmentKey] ?? CHART_MOTION.sales;
   if (reduceMotion) {
-    return { isAnimationActive: false, animationDuration: 0, animationEasing: "linear", animationBeginSecond: 0 };
+    return { isAnimationActive: false, animationDuration: 0, animationEasing: "linear", animationBeginSecond: 0, barStaggerMs: 0 };
   }
   return {
     isAnimationActive: true,
     animationDuration: config.duration,
     animationEasing: config.easing,
     animationBeginSecond: config.seriesStagger,
+    barStaggerMs: config.barStagger,
   };
 }

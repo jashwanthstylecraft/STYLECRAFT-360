@@ -19,6 +19,9 @@ server/data/uploads/pending/
 # machine-specific runtime state, not source.
 server/data/state/counter.json
 
+# Password hashes for real people — never committed, regardless of environment.
+server/data/state/users.json
+
 # Env / secrets
 .env
 .env.*

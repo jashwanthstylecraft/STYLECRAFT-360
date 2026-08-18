@@ -1,0 +1,59 @@
+try {
+  process.loadEnvFile();
+} catch {
+  // No .env file present — fine; SESSION_SECRET (if set) comes from a real
+  // env var, otherwise auth.js falls back to an in-memory dev secret.
+}
+
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const salesRouter = require("./routes/sales");
+const inventoryRouter = require("./routes/inventory");
+const financeRouter = require("./routes/finance");
+const operationsRouter = require("./routes/operations");
+const counterRouter = require("./routes/counter");
+const homeRouter = require("./routes/home");
+const dataRouter = require("./routes/data");
+const entryRouter = require("./routes/entry");
+const detailRouter = require("./routes/detail");
+const exportRouter = require("./routes/export");
+const authRouter = require("./routes/auth");
+const usersRouter = require("./routes/users");
+const { requireAuth, requireRole } = require("./middleware/auth");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use(cookieParser());
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// Must be reachable before requireAuth — this IS the login flow.
+app.use("/api/auth", authRouter);
+
+app.use(requireAuth);
+
+app.use("/api/sales", salesRouter);
+app.use("/api/inventory", inventoryRouter);
+app.use("/api/finance", financeRouter);
+app.use("/api/operations", operationsRouter);
+app.use("/api/home", homeRouter);
+app.use("/api/detail", detailRouter);
+app.use("/api/counter", counterRouter);
+
+// Data Entry and Team management are admin-only, wholesale — viewers get
+// zero access, GET included. `data.js` is more nuanced: its own routes are
+// gated per-route internally, because /status and /stream are the app-wide
+// date-anchoring + live-update mechanism every dashboard depends on
+// (viewers included) — only the upload/apply/template/versions routes are
+// actually admin-only.
+app.use("/api/entry", requireRole("admin"), entryRouter);
+app.use("/api/data", dataRouter);
+app.use("/api/export", requireRole("admin"), exportRouter);
+app.use("/api/users", requireRole("admin"), usersRouter);
+
+module.exports = app;

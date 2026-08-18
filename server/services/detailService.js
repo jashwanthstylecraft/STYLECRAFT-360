@@ -11,7 +11,16 @@ const { getSalesMetrics } = require("./salesService");
 const { getInventoryMetrics } = require("./inventoryService");
 const { getFinanceMetrics } = require("./financeService");
 const { getOperationsMetrics } = require("./operationsService");
-const { buildDetailStats, goalHit, humanizeKey } = require("./detailStats");
+const { buildDetailStats, buildYtdStats, goalHit, humanizeKey } = require("./detailStats");
+
+// The fullscreen YTD bar is always "this calendar year so far," independent
+// of whatever range the page's own date-range selector is currently set to.
+function currentYearRange() {
+  const currentYear = new Date(`${sharedRegistry.currentWeek(new Date())}T00:00:00Z`).getUTCFullYear();
+  const yearWeeks = sharedRegistry.generateWeeks().filter((w) => w.year === currentYear);
+  if (!yearWeeks.length) return null;
+  return { from: yearWeeks[0].weekEnding, to: yearWeeks[yearWeeks.length - 1].weekEnding };
+}
 
 const DEPARTMENT_SERVICES = {
   sales: getSalesMetrics,
@@ -77,6 +86,9 @@ function getMetricDetail(department, slug, period, range) {
   const rawMetric = raw.metrics.find((m) => m.slug === slug);
   if (!heroMetric || !rawMetric) return null;
 
+  const ytdRange = currentYearRange();
+  const ytdMetric = ytdRange ? getMetrics("weekly", ytdRange).metrics.find((m) => m.slug === slug) : null;
+
   const departmentMetrics = sharedRegistry.getDepartmentMetrics(department);
   const orderIndex = departmentMetrics.findIndex((m) => m.slug === slug);
   const prev = orderIndex > 0 ? departmentMetrics[orderIndex - 1] : null;
@@ -87,6 +99,7 @@ function getMetricDetail(department, slug, period, range) {
     slug,
     hero: { weeks: hero.weeks, period: hero.period, metric: heroMetric },
     stats: buildDetailStats(rawMetric, raw.weeks, raw.weekEndings),
+    ytd: ytdMetric ? buildYtdStats(ytdMetric) : null,
     table: buildTable(rawMetric, raw.weeks, raw.weekEndings),
     isSampleData: hero.isSampleData,
     prev: prev ? { slug: prev.slug, name: prev.name } : null,

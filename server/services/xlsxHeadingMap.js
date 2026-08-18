@@ -56,7 +56,7 @@ const HEADING_MAP = {
   "A/R Past Due (Incl. in Total)": { department: "finance", slug: "ar-past-due", kind: "single" },
   "Weekly Gross Margin": { department: "finance", slug: "weekly-gross-margin", kind: "single" },
 
-  "Milkshake Units Prepped": { department: "operations", slug: "milkshake-units-prepped", kind: "single" },
+  "Artwork Out the Door": { department: "operations", slug: "milkshake-units-prepped", kind: "single" },
   "NEW Social Follow/Subs": {
     department: "operations",
     slug: "new-social-follow-subs",

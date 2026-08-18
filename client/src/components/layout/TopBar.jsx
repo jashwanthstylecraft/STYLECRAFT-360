@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Calendar, Check, ChevronDown, Menu, Sun, Moon } from "lucide-react";
 import CompactCounter from "../counter/CompactCounter";
 import PeriodSelector from "./PeriodSelector";
@@ -144,10 +145,10 @@ export default function TopBar({ lastUpdated, onOpenMobileNav, showCounter = tru
         >
           <Menu size={20} />
         </button>
-        <div className="flex items-baseline gap-1.5">
+        <Link to="/" className="flex items-baseline gap-1.5">
           <span className="text-lg font-extrabold tracking-tight text-heading">StyleCraft</span>
           <span className="text-lg font-extrabold tracking-tight text-actual">360</span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">

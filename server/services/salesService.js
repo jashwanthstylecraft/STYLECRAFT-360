@@ -5,15 +5,28 @@ const { applyPeriodToDepartment } = require("./aggregate");
 // frontend never recomputes business logic — it only renders what it's given.
 function attainmentPct(result, goal) {
   if (result === null || result === undefined) return null;
-  if (!goal) return null;
+  if (goal === null || goal === undefined) return null;
+  if (goal === 0) return result === 0 ? 100 : null; // % of a zero goal is undefined; callers special-case this
   return (result / goal) * 100;
 }
+
+// A real zero prior value is NOT "missing data" — `!prior` used to treat
+// them identically, silently blanking the WoW arrow whenever last week was
+// genuinely 0 instead of showing the change. `latest === prior` short-
+// circuits 0-to-0 to a clean 0 before the division. A real 0-to-N move can't
+// express a finite percent, and true `Infinity` doesn't survive JSON (it
+// silently becomes `null`, indistinguishable from missing data on the wire)
+// — so we send this sentinel instead; the client (TrendArrow.jsx) renders
+// anything this large as "New" rather than a literal percentage.
+const WOW_NEW_SENTINEL = 1e6;
 
 function wowDeltaPct(series) {
   if (!Array.isArray(series) || series.length < 2) return null;
   const latest = series[series.length - 1];
   const prior = series[series.length - 2];
-  if (latest === null || latest === undefined || !prior) return null;
+  if (latest === null || latest === undefined || prior === null || prior === undefined) return null;
+  if (latest === prior) return 0;
+  if (prior === 0) return latest > 0 ? WOW_NEW_SENTINEL : -WOW_NEW_SENTINEL;
   return ((latest - prior) / prior) * 100;
 }
 

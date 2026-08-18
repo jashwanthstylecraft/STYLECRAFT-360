@@ -110,3 +110,43 @@ export function setCounterTotal(total) {
     body: JSON.stringify({ total }),
   });
 }
+
+export function login(username, password) {
+  return request("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export function logout() {
+  return request("/auth/logout", { method: "POST" });
+}
+
+export function fetchCurrentUser() {
+  return request("/auth/me");
+}
+
+export function fetchUsers() {
+  return request("/users");
+}
+
+export function addUser({ username, name, password }) {
+  return request("/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, name, password }),
+  });
+}
+
+export function removeUser(username) {
+  return request(`/users/${encodeURIComponent(username)}`, { method: "DELETE" });
+}
+
+export function resetUserPassword(username, password) {
+  return request(`/users/${encodeURIComponent(username)}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+}

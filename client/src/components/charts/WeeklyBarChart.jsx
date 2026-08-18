@@ -11,9 +11,42 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import ChartTooltip from "./ChartTooltip";
+import { roundedTopRectPath } from "./barShapes";
 import { formatValue } from "../../utils/format";
 import { useChartColors } from "../../utils/theme";
 import { xAxisInterval, shouldUseLineFallback } from "../../utils/chartDensity";
+
+// A left-to-right cascade needs each bar's grow-in to start at its own time —
+// Recharts' built-in Bar animation doesn't honor a per-Cell animationBegin
+// override (verified: every bar starts together regardless), so when a
+// department wants that cascade (barStaggerMs > 0) this shape renders the
+// bar itself and drives the grow-in via a plain CSS keyframe with a per-bar
+// `animation-delay` instead, which the browser applies per-element for free.
+function makeCascadingBarShape({ barStaggerMs, animationDuration, animationEasing, isAnimationActive, actualFill }) {
+  return function CascadingBar({ x, y, width, height, index, payload }) {
+    if (!height) return null;
+    const partial = payload?.partial;
+    return (
+      <path
+        d={roundedTopRectPath(x, y, width, height, 4)}
+        fill={actualFill}
+        fillOpacity={partial ? 0.5 : 1}
+        stroke={partial ? actualFill : undefined}
+        strokeDasharray={partial ? "3 2" : undefined}
+        className={isAnimationActive ? "chart-bar-grow-in" : undefined}
+        style={
+          isAnimationActive
+            ? {
+                animationDuration: `${animationDuration}ms`,
+                animationDelay: `${index * barStaggerMs}ms`,
+                animationTimingFunction: animationEasing,
+              }
+            : undefined
+        }
+      />
+    );
+  };
+}
 
 export default function WeeklyBarChart({
   weeks,
@@ -28,6 +61,7 @@ export default function WeeklyBarChart({
   isAnimationActive = true,
   animationDuration,
   animationEasing,
+  barStaggerMs = 0,
   labelThinThreshold,
   showBrush = false,
 }) {
@@ -108,6 +142,13 @@ export default function WeeklyBarChart({
             isAnimationActive={isAnimationActive}
             animationDuration={animationDuration}
             animationEasing={animationEasing}
+          />
+        ) : barStaggerMs > 0 && isAnimationActive ? (
+          <Bar
+            dataKey="actual"
+            maxBarSize={compact ? 10 : 24}
+            isAnimationActive={false}
+            shape={makeCascadingBarShape({ barStaggerMs, animationDuration, animationEasing, isAnimationActive, actualFill: COLORS.actual })}
           />
         ) : (
           <Bar

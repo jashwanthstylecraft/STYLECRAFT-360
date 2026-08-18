@@ -24,14 +24,14 @@ function GroupedHeader({ name, preorderTotal, backorderTotal, preorderWowDeltaPc
         </div>
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Backorder</div>
-          <div className="text-lg font-bold tabular-nums leading-tight text-goal">
+          <div className="text-[28px] font-bold tabular-nums leading-tight text-actual-strong">
             {formatCurrencyCompact(backorderTotal)}
           </div>
         </div>
       </div>
       <div className="mt-2.5 flex items-center gap-3">
-        <TrendArrow deltaPct={preorderWowDeltaPct} />
-        <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} />
+        <TrendArrow deltaPct={preorderWowDeltaPct} arrowMeansGood />
+        <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} arrowMeansGood />
       </div>
     </div>
   );

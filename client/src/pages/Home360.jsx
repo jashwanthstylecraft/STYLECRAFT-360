@@ -1,13 +1,7 @@
 import { AlertTriangle } from "lucide-react";
-import { motion } from "framer-motion";
 import PageShell from "../components/layout/PageShell";
 import OdometerCounter from "../components/counter/OdometerCounter";
-import HomeInsightCard from "../components/home/insights/HomeInsightCard";
-import HealthStrip from "../components/home/HealthStrip";
 import { useCounter } from "../hooks/useCounter";
-import { useHomeSummary } from "../hooks/useHomeSummary";
-import { useHomeInsights } from "../hooks/useHomeInsights";
-import { cardMotionProps } from "../lib/motion";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 function Hero({ total, asOf, isPlaceholder, reduceMotion }) {
@@ -51,51 +45,10 @@ function Hero({ total, asOf, isPlaceholder, reduceMotion }) {
 export default function Home360() {
   const reduceMotion = usePrefersReducedMotion();
   const { total, asOf, isPlaceholder } = useCounter();
-  const { data, isLoading, isError, error } = useHomeSummary();
-  const { data: insights, isError: insightsError, error: insightsErrorObj } = useHomeInsights();
 
   return (
     <PageShell lastUpdated={null} showCounter={false}>
       <Hero total={total} asOf={asOf} isPlaceholder={isPlaceholder} reduceMotion={reduceMotion} />
-
-      {isError && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
-          <AlertTriangle size={18} />
-          <div>
-            <div className="font-semibold">Couldn't load the department summary</div>
-            <div className="text-red-600/80 dark:text-red-400/80">{error?.message ?? "The API is unreachable. Check the server is running."}</div>
-          </div>
-        </div>
-      )}
-
-      {!isError && data && (
-        <motion.div {...cardMotionProps("fadeUp", 0, reduceMotion)} className="mb-6">
-          <HealthStrip departments={data.departments} />
-        </motion.div>
-      )}
-
-      {insightsError && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
-          <AlertTriangle size={18} />
-          <div>
-            <div className="font-semibold">Couldn't load the home insights</div>
-            <div className="text-red-600/80 dark:text-red-400/80">{insightsErrorObj?.message ?? "The API is unreachable. Check the server is running."}</div>
-          </div>
-        </div>
-      )}
-
-      {!insightsError && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {!insights &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[320px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-            ))}
-
-          {insights?.cards.map((card, index) => (
-            <HomeInsightCard key={card.key} card={card} index={index} />
-          ))}
-        </div>
-      )}
     </PageShell>
   );
 }

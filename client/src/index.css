@@ -49,3 +49,25 @@ body {
   color: var(--color-ink);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
+
+/* Per-bar draw-in cascade (Inventory/Operations chart identity) — Recharts'
+   own animation system doesn't honor a per-Cell animationBegin override for
+   a Bar's size animation (verified: every bar starts simultaneously
+   regardless), so the staggered bars render via a plain CSS keyframe with a
+   per-bar animation-delay instead. transform-box: fill-box makes `bottom`
+   resolve to the bar's own edge rather than the SVG viewport's. */
+@keyframes bar-grow-in {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.chart-bar-grow-in {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation-name: bar-grow-in;
+  animation-fill-mode: backwards;
+}

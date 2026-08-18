@@ -3,8 +3,10 @@ const multer = require("multer");
 const repository = require("../data/repository");
 const uploadService = require("../services/uploadService");
 const { generateTemplateWorkbook } = require("../services/templateService");
+const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
+const adminOnly = requireRole("admin");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -25,14 +27,14 @@ router.get("/status", (req, res) => {
   });
 });
 
-router.get("/template", (req, res) => {
+router.get("/template", adminOnly, (req, res) => {
   const buffer = generateTemplateWorkbook();
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", 'attachment; filename="stylecraft-360-template.xlsx"');
   res.send(buffer);
 });
 
-router.post("/upload", (req, res) => {
+router.post("/upload", adminOnly, (req, res) => {
   upload.single("file")(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: "No file uploaded." });
@@ -41,7 +43,7 @@ router.post("/upload", (req, res) => {
   });
 });
 
-router.post("/apply", (req, res) => {
+router.post("/apply", adminOnly, (req, res) => {
   const { uploadId, note } = req.body || {};
   if (!uploadId) return res.status(400).json({ error: "uploadId is required." });
   try {
@@ -52,11 +54,11 @@ router.post("/apply", (req, res) => {
   }
 });
 
-router.get("/versions", (req, res) => {
+router.get("/versions", adminOnly, (req, res) => {
   res.json({ versions: uploadService.listVersions() });
 });
 
-router.post("/versions/:file/restore", (req, res) => {
+router.post("/versions/:file/restore", adminOnly, (req, res) => {
   try {
     const meta = uploadService.restoreVersion(req.params.file);
     res.json({ ok: true, meta });

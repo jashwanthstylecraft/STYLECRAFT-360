@@ -1,6 +1,7 @@
-import { NavLink } from "react-router-dom";
-import { Home, ChevronsLeft, ChevronsRight, X, UploadCloud, PencilLine, Settings } from "lucide-react";
+import { NavLink, Link, useNavigate } from "react-router-dom";
+import { Home, ChevronsLeft, ChevronsRight, X, UploadCloud, PencilLine, Settings, LogOut } from "lucide-react";
 import { DEPARTMENTS } from "../../config/departments";
+import { useAuth } from "../../contexts/AuthContext";
 
 function NavItem({ to, label, Icon, enabled, collapsed, onNavigate }) {
   const content = (
@@ -42,6 +43,15 @@ function NavItem({ to, label, Icon, enabled, collapsed, onNavigate }) {
 }
 
 export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = user?.role === "admin";
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <>
       {mobileOpen && (
@@ -59,10 +69,10 @@ export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCl
       >
         <div className="flex items-center justify-between px-4 py-5">
           {!collapsed && (
-            <div className="leading-tight">
+            <Link to="/" onClick={onCloseMobile} className="leading-tight">
               <div className="text-sm font-extrabold tracking-wide text-white">STYLECRAFT</div>
               <div className="text-xs font-semibold tracking-widest text-actual">360</div>
-            </div>
+            </Link>
           )}
           <button
             onClick={onToggleCollapsed}
@@ -98,10 +108,35 @@ export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCl
 
         <div className="px-3 pb-2">
           <div className="mb-2 border-t border-white/10" />
-          <NavItem to="/data-entry" label="Data Entry" Icon={PencilLine} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
-          <NavItem to="/data" label="Data" Icon={UploadCloud} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
+          {isAdmin && (
+            <>
+              <NavItem to="/data-entry" label="Data Entry" Icon={PencilLine} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
+              <NavItem to="/data" label="Data" Icon={UploadCloud} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
+            </>
+          )}
           <NavItem to="/settings" label="Settings" Icon={Settings} enabled collapsed={collapsed} onNavigate={onCloseMobile} />
         </div>
+
+        {user && (
+          <div className="border-t border-white/10 px-3 py-3">
+            <div className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${collapsed ? "justify-center" : "justify-between"}`}>
+              {!collapsed && (
+                <div className="min-w-0 leading-tight">
+                  <div className="truncate text-sm font-medium text-white">{user.name}</div>
+                  <div className="text-xs capitalize text-slate-400">{user.role}</div>
+                </div>
+              )}
+              <button
+                onClick={handleLogout}
+                className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                aria-label="Log out"
+                title="Log out"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {!collapsed && (
           <div className="px-4 py-4 text-xs text-slate-500">

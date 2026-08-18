@@ -190,4 +190,38 @@ function buildDetailStats(metric, weeks, weekEndings) {
   }));
 }
 
-module.exports = { buildDetailStats, computeSeriesStats, resolveSeries, goalHit, isPresent, humanizeKey, movingAverageSeries };
+// Year-to-date Result vs. Goal, for the fullscreen comparison bar. Only
+// meaningful for metrics that are additive/averageable over time — a
+// "last"-aggregated snapshot (A/R Total, Inventory Level, ...) can't be
+// summed across a year — and only for series that actually have a real
+// per-week goal to compare against (resolveSeries already returns
+// `goalSeries: undefined` for groupKeys metrics, which use headerValues/
+// targetLine instead; a stackKeys metric with no goal column in the source
+// sheet just aggregates to `null`, filtered out below). Returns `null` when
+// nothing qualifies, so the client can skip rendering the bar entirely.
+function buildYtdStats(metric) {
+  if (metric.aggregationMethod === "last") return null;
+
+  const blocks = resolveSeries(metric)
+    .map(({ key, label, format, series, goalSeries }) => ({
+      key,
+      label,
+      format,
+      ytdResult: rangeAggregate(series, metric.aggregationMethod),
+      ytdGoal: goalSeries ? rangeAggregate(goalSeries, metric.aggregationMethod) : null,
+    }))
+    .filter((b) => isPresent(b.ytdResult) && isPresent(b.ytdGoal));
+
+  return blocks.length ? { blocks } : null;
+}
+
+module.exports = {
+  buildDetailStats,
+  buildYtdStats,
+  computeSeriesStats,
+  resolveSeries,
+  goalHit,
+  isPresent,
+  humanizeKey,
+  movingAverageSeries,
+};

@@ -273,13 +273,13 @@ export const METRICS = [
   },
   {
     slug: "milkshake-units-prepped",
-    name: "Milkshake Units Prepped",
+    name: "Artwork Out the Door",
     department: "operations",
     chartType: "bar",
     goalDirection: "higher",
     format: "count",
     aggregationMethod: "sum",
-    description: "Units prepped for the Milkshake product line.",
+    description: "Units of artwork shipped out the door.",
   },
   {
     slug: "guru-cards-created",

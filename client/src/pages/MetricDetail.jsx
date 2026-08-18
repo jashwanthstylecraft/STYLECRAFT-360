@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X, Download, ArrowUpRi
 import PageShell from "../components/layout/PageShell";
 import MetricChart from "../components/kpi/MetricChart";
 import StatsStrip from "../components/detail/StatsStrip";
+import YtdComparisonBar from "../components/detail/YtdComparisonBar";
 import DataTable, { buildCsvRows } from "../components/detail/DataTable";
 import SampleDataBadge from "../components/data/SampleDataBadge";
 import { useMetricDetail } from "../hooks/useMetricDetail";
@@ -59,7 +60,7 @@ function useMeasuredHeight() {
   return [ref, height];
 }
 
-function HeroChart({ metric, weeks, departmentKey, reduceMotion }) {
+function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [boxRef, boxHeight] = useMeasuredHeight();
 
@@ -94,9 +95,14 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion }) {
             <X size={18} />
           </button>
         </div>
-        <div ref={boxRef} className="flex-1">
+        <div ref={boxRef} className="min-h-0 flex-1">
           {boxHeight > 0 && chartBlock}
         </div>
+        {ytdBlocks && ytdBlocks.length > 0 && (
+          <div className="mt-4 shrink-0">
+            <YtdComparisonBar blocks={ytdBlocks} />
+          </div>
+        )}
       </div>
     );
   }
@@ -177,9 +183,10 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
     );
   }
 
-  const { hero, stats, table, isSampleData, prev, next } = data;
+  const { hero, stats, ytd, table, isSampleData, prev, next } = data;
   const metric = hero.metric;
   const format = metric.format || "currency";
+  const hasYtd = Boolean(ytd?.blocks?.length);
 
   function handleExportCsv() {
     const { headers, body } = buildCsvRows(metric, table, format);
@@ -213,8 +220,9 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
           <PrevNextArrows backPath={backPath} prev={prev} next={next} />
         </div>
 
-        <div className="mb-6">
-          <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} />
+        <div className="mb-6 space-y-5">
+          <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} ytdBlocks={ytd?.blocks} />
+          {hasYtd && <YtdComparisonBar blocks={ytd?.blocks} />}
         </div>
 
         <motion.div className="mb-6" {...cardMotionProps(motionVariant, 0, reduceMotion)}>
