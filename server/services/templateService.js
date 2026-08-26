@@ -5,7 +5,7 @@ const { COUNTER_SHEET, COUNTER_KEY } = require("./xlsxSchema");
 const { headingForSlug } = require("./xlsxHeadingMap");
 
 const RAW_DATA_SHEET_NAME = "Raw Data - Do Not Touch";
-const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations"];
+const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
 function excelSerialFromDate(date) {
   return date.getTime() / 86400000 + 25569;

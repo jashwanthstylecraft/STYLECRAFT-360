@@ -41,6 +41,14 @@ export function fetchOperationsMetrics({ from, to, period } = {}) {
   return request(`/operations/metrics?_${rangeQuery({ from, to })}${periodQuery(period)}`);
 }
 
+export function fetchMarketingMetrics({ from, to, period } = {}) {
+  return request(`/marketing/metrics?_${rangeQuery({ from, to })}${periodQuery(period)}`);
+}
+
+export function fetchCustomerServiceMetrics({ from, to, period } = {}) {
+  return request(`/customer-service/metrics?_${rangeQuery({ from, to })}${periodQuery(period)}`);
+}
+
 export function fetchHomeSummary({ from, to, period } = {}) {
   return request(`/home/summary?_${rangeQuery({ from, to })}${periodQuery(period)}`);
 }

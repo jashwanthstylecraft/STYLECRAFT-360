@@ -2,6 +2,14 @@ const repository = require("../data/repository");
 const { wowDeltaPct, seriesForKey, sumOrNull, avgOrNull, buildMetric } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
+// Defective Returns, Repair Rate %, and Customer Returns moved to
+// Customer Service, and NEW Social Follow/Subs moved to Marketing (their
+// `futureDepartment` tags always intended this — see shared/metricRegistry.mjs
+// and the README's "How to add a department" section). Operations' summary
+// now highlights its 5 remaining metrics: Shipping Time, Invoice Errors &
+// Shortages, Artwork Out the Door, and Education Events (Guru Cards Created
+// still gets a full card on the page, just not a summary tile — the same
+// "not every metric needs a summary tile" pattern Sales/Inventory already use).
 function buildSummary(WEEKS, METRICS) {
   const latestIndex = WEEKS.length - 1;
   const bySlug = (slug) => METRICS.find((m) => m.slug === slug);
@@ -11,20 +19,12 @@ function buildSummary(WEEKS, METRICS) {
   const b2cSeries = seriesForKey(shipping, "b2c");
   const avgShippingSeries = b2bSeries.map((v, i) => avgOrNull(v, b2cSeries[i]));
 
-  const defective = bySlug("defective-returns");
   const invoiceErrors = bySlug("invoice-errors-shortages");
-  const customerReturns = bySlug("customer-returns");
-  const qualitySeries = defective.series.map((v, i) =>
-    sumOrNull(v, invoiceErrors.series[i], customerReturns.series[i])
-  );
-  const qualityBudget = sumOrNull(defective.goal, invoiceErrors.goal, customerReturns.goal);
+  const artwork = bySlug("milkshake-units-prepped");
 
-  const repairRate = bySlug("repair-rate");
-
-  const social = bySlug("new-social-follow-subs");
-  const socialSeries = seriesForKey(social, "social");
-  const klaviyoSeries = seriesForKey(social, "klaviyo");
-  const combinedSocialSeries = socialSeries.map((v, i) => sumOrNull(v, klaviyoSeries[i]));
+  const education = bySlug("education-events");
+  const requestedSeries = seriesForKey(education, "requested");
+  const completedSeries = seriesForKey(education, "completed");
 
   return {
     avgShippingTime: {
@@ -33,20 +33,19 @@ function buildSummary(WEEKS, METRICS) {
       b2b: b2bSeries[latestIndex],
       b2c: b2cSeries[latestIndex],
     },
-    qualityDollars: {
-      result: qualitySeries[latestIndex],
-      wowDeltaPct: wowDeltaPct(qualitySeries),
-      budget: qualityBudget,
+    invoiceErrors: {
+      result: invoiceErrors.series[latestIndex],
+      wowDeltaPct: wowDeltaPct(invoiceErrors.series),
+      budget: invoiceErrors.goal,
     },
-    repairRatePct: {
-      value: repairRate.series[latestIndex],
-      wowDeltaPct: wowDeltaPct(repairRate.series),
+    artworkOutTheDoor: {
+      result: artwork.series[latestIndex],
+      wowDeltaPct: wowDeltaPct(artwork.series),
     },
-    newSocialAdds: {
-      result: combinedSocialSeries[latestIndex],
-      wowDeltaPct: wowDeltaPct(combinedSocialSeries),
-      social: socialSeries[latestIndex],
-      klaviyo: klaviyoSeries[latestIndex],
+    educationEvents: {
+      requested: requestedSeries[latestIndex],
+      completed: completedSeries[latestIndex],
+      wowDeltaPct: wowDeltaPct(completedSeries),
     },
   };
 }

@@ -1,5 +1,5 @@
 import StatTile from "./StatTile";
-import { formatCurrencyCompact, formatPercentFraction, formatDecimal, formatCount } from "../../utils/format";
+import { formatCurrencyCompact, formatDecimal, formatCount } from "../../utils/format";
 
 export default function OperationsSummaryStrip({ summary }) {
   return (
@@ -12,22 +12,22 @@ export default function OperationsSummaryStrip({ summary }) {
         positiveIsGood={false}
       />
       <StatTile
-        label="Quality $"
-        value={formatCurrencyCompact(summary.qualityDollars.result)}
-        sublabel={`vs ${formatCurrencyCompact(summary.qualityDollars.budget)} budget`}
-        deltaPct={summary.qualityDollars.wowDeltaPct}
+        label="Invoice Errors & Shortages"
+        value={formatCurrencyCompact(summary.invoiceErrors.result)}
+        sublabel={`vs ${formatCurrencyCompact(summary.invoiceErrors.budget)} budget`}
+        deltaPct={summary.invoiceErrors.wowDeltaPct}
         positiveIsGood={false}
       />
       <StatTile
-        label="Repair Rate %"
-        value={formatPercentFraction(summary.repairRatePct.value)}
-        deltaPct={summary.repairRatePct.wowDeltaPct}
+        label="Artwork Out the Door"
+        value={formatCount(summary.artworkOutTheDoor.result)}
+        deltaPct={summary.artworkOutTheDoor.wowDeltaPct}
       />
       <StatTile
-        label="New Social + Klaviyo Adds"
-        value={formatCount(summary.newSocialAdds.result)}
-        sublabel={`Social ${formatCount(summary.newSocialAdds.social)} · Klaviyo ${formatCount(summary.newSocialAdds.klaviyo)}`}
-        deltaPct={summary.newSocialAdds.wowDeltaPct}
+        label="Education Events"
+        value={`${formatCount(summary.educationEvents.completed)} completed`}
+        sublabel={`${formatCount(summary.educationEvents.requested)} requested`}
+        deltaPct={summary.educationEvents.wowDeltaPct}
       />
     </div>
   );

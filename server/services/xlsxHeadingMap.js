@@ -58,13 +58,13 @@ const HEADING_MAP = {
 
   "Artwork Out the Door": { department: "operations", slug: "milkshake-units-prepped", kind: "single" },
   "NEW Social Follow/Subs": {
-    department: "operations",
+    department: "marketing",
     slug: "new-social-follow-subs",
     kind: "multi",
     seriesMap: { "Social Media": "social", Klavio: "klaviyo" },
   },
-  "Defective Returns": { department: "operations", slug: "defective-returns", kind: "single" },
-  "Customer Returns": { department: "operations", slug: "customer-returns", kind: "single" },
+  "Defective Returns": { department: "customer-service", slug: "defective-returns", kind: "single" },
+  "Customer Returns": { department: "customer-service", slug: "customer-returns", kind: "single" },
   "Shipping Time (# Days)": {
     department: "operations",
     slug: "shipping-time-days",
@@ -72,8 +72,8 @@ const HEADING_MAP = {
     seriesMap: { B2B: "b2b", B2C: "b2c" },
   },
   "Invoice Errors & Shortages": { department: "operations", slug: "invoice-errors-shortages", kind: "single" },
-  "Product Reviews": { department: "operations", slug: "product-reviews", kind: "single" },
-  "Repair Rate": { department: "operations", slug: "repair-rate", kind: "single" },
+  "Product Reviews": { department: "marketing", slug: "product-reviews", kind: "single" },
+  "Repair Rate": { department: "customer-service", slug: "repair-rate", kind: "single" },
   "Education Events": {
     department: "operations",
     slug: "education-events",

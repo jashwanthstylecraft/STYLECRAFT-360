@@ -6,6 +6,8 @@ import Sales from "./pages/Sales";
 import Inventory from "./pages/Inventory";
 import Finance from "./pages/Finance";
 import Operations from "./pages/Operations";
+import Marketing from "./pages/Marketing";
+import CustomerService from "./pages/CustomerService";
 import DataUpload from "./pages/DataUpload";
 import DataEntry from "./pages/DataEntry";
 import MetricDetail from "./pages/MetricDetail";
@@ -87,6 +89,38 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MetricDetail backPath="/operations" backLabel="Operations" departmentKey="operations" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing"
+        element={
+          <ProtectedRoute>
+            <Marketing />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/:metricSlug"
+        element={
+          <ProtectedRoute>
+            <MetricDetail backPath="/marketing" backLabel="Marketing" departmentKey="marketing" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer-service"
+        element={
+          <ProtectedRoute>
+            <CustomerService />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customer-service/:metricSlug"
+        element={
+          <ProtectedRoute>
+            <MetricDetail backPath="/customer-service" backLabel="Customer Service" departmentKey="customer-service" />
           </ProtectedRoute>
         }
       />

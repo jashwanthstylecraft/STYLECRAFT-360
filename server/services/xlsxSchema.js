@@ -32,7 +32,7 @@ const ROW_TYPE = { VALUE: "value", GOAL: "goal" };
 // Department row order is fixed (not alphabetical, not registry-declaration
 // order) so two exports of the same data are byte-identical apart from the
 // metadata timestamp — see the "deterministic" strictness rule.
-const DEPARTMENT_ORDER = ["sales", "inventory", "finance", "operations"];
+const DEPARTMENT_ORDER = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
 // Display-only number formats (Excel format codes) — the underlying stored
 // value is never rounded or rescaled to match; a 0.5487 percent value keeps

@@ -2,6 +2,8 @@ const { getSalesMetrics } = require("./salesService");
 const { getInventoryMetrics } = require("./inventoryService");
 const { getFinanceMetrics } = require("./financeService");
 const { getOperationsMetrics } = require("./operationsService");
+const { getMarketingMetrics } = require("./marketingService");
+const { getCustomerServiceMetrics } = require("./customerServiceService");
 const counterService = require("./counterService");
 
 // Which metric each department leads with on the 360 home page. Configurable
@@ -12,6 +14,8 @@ const HEADLINE_METRIC_SLUG = {
   inventory: "inventory-level",
   finance: "weekly-gross-margin",
   operations: "shipping-time-days",
+  marketing: "new-social-follow-subs",
+  "customer-service": "customer-returns",
 };
 
 const BUILT_DEPARTMENTS = [
@@ -19,13 +23,11 @@ const BUILT_DEPARTMENTS = [
   { key: "inventory", label: "Inventory & Purchasing", path: "/inventory", getMetrics: getInventoryMetrics },
   { key: "finance", label: "Finance", path: "/finance", getMetrics: getFinanceMetrics },
   { key: "operations", label: "Operations", path: "/operations", getMetrics: getOperationsMetrics },
+  { key: "marketing", label: "Marketing", path: "/marketing", getMetrics: getMarketingMetrics },
+  { key: "customer-service", label: "Customer Service", path: "/customer-service", getMetrics: getCustomerServiceMetrics },
 ];
 
-const COMING_SOON_DEPARTMENTS = [
-  { key: "customer-service", label: "Customer Service", path: "/customer-service" },
-  { key: "marketing", label: "Marketing", path: "/marketing" },
-  { key: "manufacturing", label: "Manufacturing", path: "/manufacturing" },
-];
+const COMING_SOON_DEPARTMENTS = [{ key: "manufacturing", label: "Manufacturing", path: "/manufacturing" }];
 
 // The health strip needs one higher-is-better 0-100+ score per department,
 // but headline metrics don't all carry attainmentPct in the same shape

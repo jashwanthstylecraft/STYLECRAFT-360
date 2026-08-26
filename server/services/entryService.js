@@ -13,7 +13,7 @@ const sharedRegistry = require("../data/sharedRegistry");
 const snapshotService = require("./snapshotService");
 const { validateCellValue } = require("./metricValidation");
 
-const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations"];
+const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
 function entryKeyFor(slug, subkey) {
   return subkey ? `${slug}.${subkey}` : slug;

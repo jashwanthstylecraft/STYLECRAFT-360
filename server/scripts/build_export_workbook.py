@@ -38,6 +38,8 @@ DEPARTMENT_LABELS = {
     "inventory": "Inventory & Purchasing",
     "finance": "Finance",
     "operations": "Operations",
+    "marketing": "Marketing",
+    "customer-service": "Customer Service",
 }
 
 PERCENT_LINE_SLUGS = {"weekly-gross-margin", "repair-rate", "in-stock-percentage"}
@@ -175,7 +177,7 @@ def write_graphs_sheet(wb, spec, ws_data, row_index, last_week_col):
     for metric in spec["chartMetrics"]:
         by_department.setdefault(metric["department"], []).append(metric)
 
-    for department_key in ("sales", "inventory", "finance", "operations"):
+    for department_key in ("sales", "inventory", "finance", "operations", "marketing", "customer-service"):
         metrics = by_department.get(department_key, [])
         if not metrics:
             continue

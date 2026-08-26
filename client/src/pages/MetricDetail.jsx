@@ -19,6 +19,8 @@ const DEPARTMENT_MOTION_VARIANT = {
   inventory: "slideLeft",
   finance: "scaleFade",
   operations: "alternateSlideLeft",
+  marketing: "fadeUp",
+  "customer-service": "slideLeft",
 };
 
 const HERO_LABEL_THIN_THRESHOLD = 60;

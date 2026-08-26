@@ -90,6 +90,8 @@ export const CHART_MOTION = {
   inventory: { duration: 700, easing: "ease-in-out", seriesStagger: 220, barStagger: 40 },
   finance: { duration: 900, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
   operations: { duration: 600, easing: "ease-out", seriesStagger: 180, barStagger: 25 },
+  marketing: { duration: 550, easing: "ease-out", seriesStagger: 150, barStagger: 0 },
+  "customer-service": { duration: 700, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
   home: { duration: 500, easing: "ease-out", seriesStagger: 0, barStagger: 0 },
 };
 

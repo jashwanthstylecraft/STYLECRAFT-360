@@ -29,12 +29,16 @@ const salesSeed = require("./seed/salesSeed");
 const inventorySeed = require("./seed/inventorySeed");
 const financeSeed = require("./seed/financeSeed");
 const operationsSeed = require("./seed/operationsSeed");
+const marketingSeed = require("./seed/marketingSeed");
+const customerServiceSeed = require("./seed/customerServiceSeed");
 
 const SEED_BY_DEPARTMENT = {
   sales: salesSeed,
   inventory: inventorySeed,
   finance: financeSeed,
   operations: operationsSeed,
+  marketing: marketingSeed,
+  "customer-service": customerServiceSeed,
 };
 
 const UPLOADS_DIR = path.join(__dirname, "uploads");

@@ -11,6 +11,8 @@ const { getSalesMetrics } = require("./salesService");
 const { getInventoryMetrics } = require("./inventoryService");
 const { getFinanceMetrics } = require("./financeService");
 const { getOperationsMetrics } = require("./operationsService");
+const { getMarketingMetrics } = require("./marketingService");
+const { getCustomerServiceMetrics } = require("./customerServiceService");
 const { buildDetailStats, buildYtdStats, goalHit, humanizeKey } = require("./detailStats");
 
 // The fullscreen YTD bar is always "this calendar year so far," independent
@@ -27,6 +29,8 @@ const DEPARTMENT_SERVICES = {
   inventory: getInventoryMetrics,
   finance: getFinanceMetrics,
   operations: getOperationsMetrics,
+  marketing: getMarketingMetrics,
+  "customer-service": getCustomerServiceMetrics,
 };
 
 function buildTableRow(metric, week, weekEnding, index) {

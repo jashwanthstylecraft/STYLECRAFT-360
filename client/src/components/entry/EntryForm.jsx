@@ -7,8 +7,10 @@ const DEPARTMENT_LABELS = {
   operations: "Operations",
   inventory: "Inventory & Purchasing",
   finance: "Finance",
+  marketing: "Marketing",
+  "customer-service": "Customer Service",
 };
-const DEPARTMENT_ORDER = ["sales", "operations", "inventory", "finance"];
+const DEPARTMENT_ORDER = ["sales", "operations", "inventory", "finance", "marketing", "customer-service"];
 
 function toEditableString(value, format) {
   if (value === null || value === undefined) return "";

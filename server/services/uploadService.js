@@ -13,7 +13,7 @@ const PENDING_DIR = path.join(UPLOADS_DIR, "pending");
 const PENDING_TTL_MS = 60 * 60 * 1000;
 const WEEK_COUNT = 10;
 const RAW_DATA_SHEET_NAME = "Raw Data - Do Not Touch";
-const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations"];
+const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(PENDING_DIR, { recursive: true });
@@ -203,8 +203,8 @@ function parseOldFormat(workbook, errors, warnings) {
   const weekLabels = weekDates.map(formatWeekLabel);
   const weekEndings = weekDates.map((d) => d.toISOString().slice(0, 10));
 
-  const metricsByDept = { sales: [], inventory: [], finance: [], operations: [] };
-  const foundSlugs = { sales: new Set(), inventory: new Set(), finance: new Set(), operations: new Set() };
+  const metricsByDept = { sales: [], inventory: [], finance: [], operations: [], marketing: [], "customer-service": [] };
+  const foundSlugs = { sales: new Set(), inventory: new Set(), finance: new Set(), operations: new Set(), marketing: new Set(), "customer-service": new Set() };
 
   for (const { group, mapping, catalogMetric } of resolved) {
     const context = { department: mapping.department, heading: group.heading };
@@ -306,8 +306,8 @@ function parseCanonicalFormat(workbook, errors, warnings) {
     });
   }
 
-  const metricsByDept = { sales: [], inventory: [], finance: [], operations: [] };
-  const foundSlugs = { sales: new Set(), inventory: new Set(), finance: new Set(), operations: new Set() };
+  const metricsByDept = { sales: [], inventory: [], finance: [], operations: [], marketing: [], "customer-service": [] };
+  const foundSlugs = { sales: new Set(), inventory: new Set(), finance: new Set(), operations: new Set(), marketing: new Set(), "customer-service": new Set() };
 
   for (const [slug, { department, entries }] of bySlug) {
     if (!DEPARTMENT_KEYS.includes(department)) {
@@ -375,7 +375,7 @@ function parseCanonicalFormat(workbook, errors, warnings) {
 // ============================================================
 
 function finishParse({ metricsByDept, foundSlugs, weekLabels, weekEndings, dataSheetName }, errors, warnings, counterOverride) {
-  const keptSparseByDept = { sales: [], inventory: [], finance: [], operations: [] };
+  const keptSparseByDept = { sales: [], inventory: [], finance: [], operations: [], marketing: [], "customer-service": [] };
   for (const departmentKey of DEPARTMENT_KEYS) {
     const sparseCurrentSource = repository.getSparseDepartmentData(departmentKey);
     for (const catalogMetric of repository.getSeedCatalog(departmentKey).METRICS) {
