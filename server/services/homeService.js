@@ -64,8 +64,8 @@ function buildHeadline(dept, period, range) {
   };
 }
 
-function getHomeSummary(period, range) {
-  const { total, asOf } = counterService.getState();
+async function getHomeSummary(period, range) {
+  const { total, asOf } = await counterService.getState();
 
   return {
     counter: { total, asOf },

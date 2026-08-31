@@ -3,73 +3,103 @@
 // Both the XLSX upload path (uploadService.js) and the Data Entry save path
 // (entryService.js) call commitSnapshot() here; neither duplicates this
 // logic. "One data store, two doors."
-const fs = require("fs");
-const path = require("path");
 const repository = require("../data/repository");
+const supabase = require("../data/supabaseClient");
 const { createChannel } = require("./sseHub");
 
-const { UPLOADS_DIR, ACTIVE_POINTER_FILE } = repository;
 const MAX_VERSIONS = 20;
-
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const dataChannel = createChannel();
 
-function pruneOldVersions() {
-  const files = fs
-    .readdirSync(UPLOADS_DIR)
-    .filter((f) => /^\d+\.json$/.test(f))
-    .sort()
-    .reverse();
-  for (const file of files.slice(MAX_VERSIONS)) {
-    fs.unlinkSync(path.join(UPLOADS_DIR, file));
-  }
+// Keeps only the MAX_VERSIONS most recent snapshot rows. Non-fatal on
+// failure (logged, not thrown) — a save should never fail just because
+// cleanup of old versions hit a hiccup.
+async function pruneOldVersions() {
+  const { data, error } = await supabase.from("snapshots").select("id").order("id", { ascending: false });
+  if (error) throw new Error(`Failed to check old snapshots: ${error.message}`);
+  const staleIds = (data ?? []).slice(MAX_VERSIONS).map((r) => r.id);
+  if (staleIds.length === 0) return;
+  const { error: deleteError } = await supabase.from("snapshots").delete().in("id", staleIds);
+  if (deleteError) throw new Error(`Failed to prune old snapshots: ${deleteError.message}`);
 }
 
 // `meta` carries whatever the caller wants shown in version history —
 // filename, note, and `source` ("Upload" | "Manual entry").
-function commitSnapshot(departments, meta) {
+async function commitSnapshot(departments, meta) {
   const timestamp = Date.now();
-  const snapshotFile = `${timestamp}.json`;
   const fullMeta = {
-    file: snapshotFile,
+    file: `${timestamp}.json`, // kept for shape-compat (restoreVersion still takes this as its id)
     timestamp,
     appliedAt: new Date(timestamp).toISOString(),
     note: "",
     ...meta,
   };
 
-  fs.writeFileSync(path.join(UPLOADS_DIR, snapshotFile), JSON.stringify({ departments, meta: fullMeta }));
-  fs.writeFileSync(ACTIVE_POINTER_FILE, JSON.stringify(fullMeta));
-  pruneOldVersions();
+  const { error: insertError } = await supabase.from("snapshots").insert({
+    id: timestamp,
+    applied_at: fullMeta.appliedAt,
+    note: fullMeta.note,
+    filename: fullMeta.filename,
+    source: fullMeta.source,
+    departments,
+  });
+  if (insertError) throw new Error(`Failed to save snapshot: ${insertError.message}`);
+
+  const { error: pointerError } = await supabase.from("app_state").upsert({ key: "active_snapshot", value: fullMeta });
+  if (pointerError) throw new Error(`Failed to update active pointer: ${pointerError.message}`);
+
+  repository.setCachedSnapshot({ departments, meta: fullMeta });
+
+  try {
+    await pruneOldVersions();
+  } catch (err) {
+    console.warn("[snapshotService] pruneOldVersions failed (non-fatal):", err.message);
+  }
+
   dataChannel.broadcast("data-updated", fullMeta);
   return fullMeta;
 }
 
-function listVersions() {
-  const activePointer = repository.getActiveSnapshotMeta();
-  const files = fs
-    .readdirSync(UPLOADS_DIR)
-    .filter((f) => /^\d+\.json$/.test(f))
-    .sort()
-    .reverse();
+async function listVersions() {
+  const activeMeta = repository.getActiveSnapshotMeta();
+  const { data, error } = await supabase
+    .from("snapshots")
+    .select("id, applied_at, note, filename, source")
+    .order("id", { ascending: false });
+  if (error) throw new Error(`Failed to list versions: ${error.message}`);
 
-  return files.map((file) => {
-    const snapshot = JSON.parse(fs.readFileSync(path.join(UPLOADS_DIR, file), "utf-8"));
-    // Pre-Phase-4 snapshots predate `source` — they were all uploads.
-    return { source: "Upload", ...snapshot.meta, active: snapshot.meta.file === activePointer?.file };
-  });
+  return data.map((row) => ({
+    file: `${row.id}.json`,
+    timestamp: row.id,
+    appliedAt: row.applied_at,
+    note: row.note,
+    filename: row.filename,
+    source: row.source,
+    active: row.id === activeMeta?.timestamp,
+  }));
 }
 
-function restoreVersion(snapshotFile) {
-  const fullPath = path.join(UPLOADS_DIR, snapshotFile);
-  if (!fs.existsSync(fullPath)) {
-    throw new Error("That version no longer exists.");
-  }
-  const snapshot = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
-  fs.writeFileSync(ACTIVE_POINTER_FILE, JSON.stringify(snapshot.meta));
-  dataChannel.broadcast("data-updated", snapshot.meta);
-  return snapshot.meta;
+async function restoreVersion(snapshotFile) {
+  const timestamp = Number(String(snapshotFile).replace(/\.json$/, ""));
+  const { data: row, error } = await supabase.from("snapshots").select("*").eq("id", timestamp).maybeSingle();
+  if (error) throw new Error(`Failed to look up that version: ${error.message}`);
+  if (!row) throw new Error("That version no longer exists.");
+
+  const meta = {
+    file: `${row.id}.json`,
+    timestamp: row.id,
+    appliedAt: row.applied_at,
+    note: row.note,
+    filename: row.filename,
+    source: row.source,
+  };
+
+  const { error: pointerError } = await supabase.from("app_state").upsert({ key: "active_snapshot", value: meta });
+  if (pointerError) throw new Error(`Failed to restore version: ${pointerError.message}`);
+
+  repository.setCachedSnapshot({ departments: row.departments, meta });
+  dataChannel.broadcast("data-updated", meta);
+  return meta;
 }
 
 function subscribeToDataUpdates(req, res) {

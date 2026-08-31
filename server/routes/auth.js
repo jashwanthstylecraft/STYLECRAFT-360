@@ -4,12 +4,16 @@ const { requireAuth, setSessionCookie, clearSessionCookie } = require("../middle
 
 const router = express.Router();
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { username, password } = req.body ?? {};
-  const user = userService.verifyCredentials(username, password);
-  if (!user) return res.status(401).json({ error: "Incorrect username or password" });
-  setSessionCookie(res, user);
-  res.json({ user });
+  try {
+    const user = await userService.verifyCredentials(username, password);
+    if (!user) return res.status(401).json({ error: "Incorrect username or password" });
+    setSessionCookie(res, user);
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/logout", (req, res) => {

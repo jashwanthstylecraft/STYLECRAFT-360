@@ -6,6 +6,7 @@ import WeekList from "../components/entry/WeekList";
 import EntryForm from "../components/entry/EntryForm";
 import ExportExcelDialog from "../components/data/ExportExcelDialog";
 import { useEntryData, useEntryCoverage, useSaveEntryWeek } from "../hooks/useEntryData";
+import { ENABLE_EXCEL_EXPORT } from "../config/features";
 
 export default function DataEntry() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,16 +43,18 @@ export default function DataEntry() {
             Click any week in the master calendar (2022–2027) to view or edit its numbers.
           </p>
         </div>
-        <button
-          onClick={() => setShowExportDialog(true)}
-          className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
-        >
-          <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
-            <FileSpreadsheet size={15} />
-            Download Excel
-          </span>
-          <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
-        </button>
+        {ENABLE_EXCEL_EXPORT && (
+          <button
+            onClick={() => setShowExportDialog(true)}
+            className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
+              <FileSpreadsheet size={15} />
+              Download Excel
+            </span>
+            <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
+          </button>
+        )}
       </div>
 
       {showExportDialog && <ExportExcelDialog onClose={() => setShowExportDialog(false)} />}

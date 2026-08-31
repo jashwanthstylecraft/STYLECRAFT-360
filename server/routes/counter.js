@@ -4,29 +4,33 @@ const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  const { total, asOf, isPlaceholder } = counterService.getState();
-  res.json({ total, asOf, isPlaceholder });
+router.get("/", async (req, res) => {
+  try {
+    const { total, asOf, isPlaceholder } = await counterService.getState();
+    res.json({ total, asOf, isPlaceholder });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get("/stream", (req, res) => {
   counterService.subscribe(req, res);
 });
 
-router.post("/increment", requireRole("admin"), (req, res) => {
+router.post("/increment", requireRole("admin"), async (req, res) => {
   const { units } = req.body || {};
   try {
-    const state = counterService.increment(units);
+    const state = await counterService.increment(units);
     res.json(state);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put("/", requireRole("admin"), (req, res) => {
+router.put("/", requireRole("admin"), async (req, res) => {
   const { total } = req.body || {};
   try {
-    const state = counterService.setTotal(total);
+    const state = await counterService.setTotal(total);
     res.json(state);
   } catch (err) {
     res.status(400).json({ error: err.message });

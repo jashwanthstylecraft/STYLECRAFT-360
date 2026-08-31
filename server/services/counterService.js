@@ -1,64 +1,60 @@
-const fs = require("fs");
-const path = require("path");
+const supabase = require("../data/supabaseClient");
 const { SEED_TOTAL } = require("../data/state/counter.seed");
 const { createChannel } = require("./sseHub");
 
-const STATE_DIR = path.join(__dirname, "..", "data", "state");
-const STATE_FILE = path.join(STATE_DIR, "counter.json");
+const STATE_KEY = "counter";
 const MAX_UNITS_PER_CALL = 100000;
 
+// SSE stays wired for local/self-hosted running (a real persistent process
+// can hold these connections) — client/src/hooks/useCounter.js already
+// falls back to polling on its own if a stream never connects (e.g. on a
+// serverless deployment), so no server-side environment branching is
+// needed here at all.
 const channel = createChannel();
 
-function readState() {
-  try {
-    const raw = fs.readFileSync(STATE_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (Number.isFinite(parsed.total)) return { isPlaceholder: true, ...parsed };
-  } catch {
-    // No file yet, or it's corrupt — fall through to the seed value.
-  }
+async function readState() {
+  const { data, error } = await supabase.from("app_state").select("value").eq("key", STATE_KEY).maybeSingle();
+  if (error) throw new Error(`Failed to read counter: ${error.message}`);
+  if (data?.value && Number.isFinite(data.value.total)) return data.value;
   return { total: SEED_TOTAL, asOf: new Date(0).toISOString(), isPlaceholder: true };
 }
 
-function writeState(state) {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+async function writeState(state) {
+  const { error } = await supabase.from("app_state").upsert({ key: STATE_KEY, value: state });
+  if (error) throw new Error(`Failed to save counter: ${error.message}`);
 }
 
-let state = readState();
-if (!fs.existsSync(STATE_FILE)) writeState(state);
-
-function getState() {
-  return state;
+async function getState() {
+  return readState();
 }
 
-function persistAndBroadcast() {
-  writeState(state);
+async function persistAndBroadcast(state) {
+  await writeState(state);
   channel.broadcast("update", state);
+  return state;
 }
 
 // A real increment (e.g. a future order-feed webhook) moves the number but
 // doesn't by itself make it a verified total — isPlaceholder only clears via
 // setTotal, the explicit "a human confirmed this number" action.
-function increment(units) {
+async function increment(units) {
   if (!Number.isInteger(units) || units <= 0) {
     throw new RangeError("units must be a positive integer");
   }
   if (units > MAX_UNITS_PER_CALL) {
     throw new RangeError(`units must be <= ${MAX_UNITS_PER_CALL} per call`);
   }
-  state = { total: state.total + units, asOf: new Date().toISOString(), isPlaceholder: state.isPlaceholder };
-  persistAndBroadcast();
-  return state;
+  const current = await readState();
+  const next = { total: current.total + units, asOf: new Date().toISOString(), isPlaceholder: current.isPlaceholder };
+  return persistAndBroadcast(next);
 }
 
-function setTotal(total) {
+async function setTotal(total) {
   if (!Number.isInteger(total) || total < 0) {
     throw new RangeError("total must be a non-negative integer");
   }
-  state = { total, asOf: new Date().toISOString(), isPlaceholder: false };
-  persistAndBroadcast();
-  return state;
+  const next = { total, asOf: new Date().toISOString(), isPlaceholder: false };
+  return persistAndBroadcast(next);
 }
 
 function subscribe(req, res) {

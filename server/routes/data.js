@@ -27,11 +27,15 @@ router.get("/status", (req, res) => {
   });
 });
 
-router.get("/template", adminOnly, (req, res) => {
-  const buffer = generateTemplateWorkbook();
-  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", 'attachment; filename="stylecraft-360-template.xlsx"');
-  res.send(buffer);
+router.get("/template", adminOnly, async (req, res) => {
+  try {
+    const buffer = await generateTemplateWorkbook();
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="stylecraft-360-template.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/upload", adminOnly, (req, res) => {
@@ -43,24 +47,28 @@ router.post("/upload", adminOnly, (req, res) => {
   });
 });
 
-router.post("/apply", adminOnly, (req, res) => {
+router.post("/apply", adminOnly, async (req, res) => {
   const { uploadId, note } = req.body || {};
   if (!uploadId) return res.status(400).json({ error: "uploadId is required." });
   try {
-    const meta = uploadService.applyUpload(uploadId, note);
+    const meta = await uploadService.applyUpload(uploadId, note);
     res.json({ ok: true, meta });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.get("/versions", adminOnly, (req, res) => {
-  res.json({ versions: uploadService.listVersions() });
+router.get("/versions", adminOnly, async (req, res) => {
+  try {
+    res.json({ versions: await uploadService.listVersions() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/versions/:file/restore", adminOnly, (req, res) => {
+router.post("/versions/:file/restore", adminOnly, async (req, res) => {
   try {
-    const meta = uploadService.restoreVersion(req.params.file);
+    const meta = await uploadService.restoreVersion(req.params.file);
     res.json({ ok: true, meta });
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -12,6 +12,7 @@ import { useDataStatus } from "../hooks/useDataStatus";
 import { useDataVersions } from "../hooks/useDataVersions";
 import { invalidateAllDataQueries } from "../hooks/dataQueryKeys";
 import { uploadDataFile, applyDataUpload, restoreDataVersion, TEMPLATE_DOWNLOAD_URL } from "../services/api";
+import { ENABLE_EXCEL_EXPORT } from "../config/features";
 
 function PageHeader({ isSampleData }) {
   return (
@@ -114,16 +115,18 @@ export default function DataUpload() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowExportDialog(true)}
-            className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
-          >
-            <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
-              <FileSpreadsheet size={15} />
-              Download Excel
-            </span>
-            <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
-          </button>
+          {ENABLE_EXCEL_EXPORT && (
+            <button
+              onClick={() => setShowExportDialog(true)}
+              className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
+                <FileSpreadsheet size={15} />
+                Download Excel
+              </span>
+              <span className="text-xs text-ink-muted">Exports all saved data + charts</span>
+            </button>
+          )}
           <a
             href={TEMPLATE_DOWNLOAD_URL}
             className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm font-medium text-heading shadow-sm hover:bg-surface-hover"

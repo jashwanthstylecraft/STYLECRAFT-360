@@ -143,7 +143,7 @@ function validateEntries(entries) {
   return { errors, validated };
 }
 
-function saveWeek({ weekEnding, entries, note }) {
+async function saveWeek({ weekEnding, entries, note }) {
   if (!weekEnding) {
     return { ok: false, errors: [{ message: "A weekEnding (ISO date) is required." }] };
   }
@@ -209,7 +209,7 @@ function saveWeek({ weekEnding, entries, note }) {
     departments[departmentKey] = { METRICS };
   }
 
-  const meta = snapshotService.commitSnapshot(departments, {
+  const meta = await snapshotService.commitSnapshot(departments, {
     filename: `Week ${weekEnding}`,
     note: note || "",
     source: "Manual entry",

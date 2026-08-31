@@ -3,32 +3,36 @@ const userService = require("../services/userService");
 
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  res.json({ users: userService.listUsers() });
+router.get("/", async (req, res) => {
+  try {
+    res.json({ users: await userService.listUsers() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { username, name, password } = req.body ?? {};
   try {
-    const users = userService.addViewer({ username, name, password });
+    const users = await userService.addViewer({ username, name, password });
     res.json({ users });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete("/:username", (req, res) => {
+router.delete("/:username", async (req, res) => {
   try {
-    const users = userService.removeUser(req.params.username);
+    const users = await userService.removeUser(req.params.username);
     res.json({ users });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.post("/:username/reset-password", (req, res) => {
+router.post("/:username/reset-password", async (req, res) => {
   try {
-    userService.resetPassword(req.params.username, req.body?.password);
+    await userService.resetPassword(req.params.username, req.body?.password);
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });

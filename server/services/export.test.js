@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import XLSX from "xlsx";
+import { createRequire } from "module";
 import sharedRegistry from "../data/sharedRegistry.js";
 import { buildExportWorkbook } from "./exportService.js";
 import { parseWorkbook } from "./uploadService.js";
+
+const repository = createRequire(import.meta.url)("../data/repository.js");
 
 // Phase 8's round-trip law: export -> re-import unchanged -> zero diffs.
 // Runs against whatever the active snapshot actually is (real or seed) —
@@ -13,6 +16,7 @@ import { parseWorkbook } from "./uploadService.js";
 describe("Phase 8 export/import round-trip", () => {
   beforeAll(async () => {
     await sharedRegistry.ready;
+    await repository.ensureFreshSnapshot();
   });
 
   it("re-importing an unchanged export reports zero diffs anywhere", () => {

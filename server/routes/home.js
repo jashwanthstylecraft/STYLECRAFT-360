@@ -4,9 +4,13 @@ const { getHomeInsights } = require("../services/homeInsightsService");
 
 const router = express.Router();
 
-router.get("/summary", (req, res) => {
+router.get("/summary", async (req, res) => {
   const { from, to, period } = req.query;
-  res.json(getHomeSummary(period, { from, to }));
+  try {
+    res.json(await getHomeSummary(period, { from, to }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get("/insights", (req, res) => {

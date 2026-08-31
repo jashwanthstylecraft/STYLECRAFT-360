@@ -89,18 +89,18 @@ function buildRawDataSheet() {
   return sheet;
 }
 
-function buildCounterSheet() {
-  const { total } = counterService.getState();
+async function buildCounterSheet() {
+  const { total } = await counterService.getState();
   return XLSX.utils.aoa_to_sheet([[COUNTER_KEY, total]]);
 }
 
 // Pre-fills a workbook with the CURRENT active data (uploaded snapshot, or
 // seed if none), shaped exactly like StyleCraft's real "Raw Data - Do Not
 // Touch" export — so re-uploading it unchanged always validates clean.
-function generateTemplateWorkbook() {
+async function generateTemplateWorkbook() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, buildRawDataSheet(), RAW_DATA_SHEET_NAME);
-  XLSX.utils.book_append_sheet(workbook, buildCounterSheet(), COUNTER_SHEET);
+  XLSX.utils.book_append_sheet(workbook, await buildCounterSheet(), COUNTER_SHEET);
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }
 

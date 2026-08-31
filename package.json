@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "StyleCraft 360 — internal executive dashboard. The whole business, at a glance.",
+  "engines": {
+    "node": ">=20.6.0"
+  },
   "scripts": {
     "dev": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",

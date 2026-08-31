@@ -1,11 +1,24 @@
 // Resolves each department's {WEEKS, WEEK_ENDINGS, AS_OF, METRICS} — in the
 // classic POSITIONAL-array shape aggregate.js/services/charts already
-// expect — for a requested date range, from whatever is stored SPARSELY on
-// disk (seed or the active uploaded/entered snapshot). This is the ONE
-// place department services read data from; uploadService.js/
-// entryService.js write snapshots here. Read fresh on every call (not
-// cached at require-time) since a snapshot can change while the server is
-// running.
+// expect — for a requested date range, from whatever the active snapshot
+// (or seed) holds. This is the ONE place department services read data
+// from; uploadService.js/entryService.js write snapshots here (via
+// snapshotService.js).
+//
+// Storage backend: Supabase (see supabaseClient.js + supabase-schema.sql).
+// The active snapshot is kept in a short-TTL (3s) in-memory cache rather
+// than fetched on every single call — Supabase's client is async, and this
+// module's ~13 downstream consumers (every department service, entryService,
+// uploadService, templateService, exportService, detailService,
+// homeService, homeInsightsService) all call it SYNCHRONOUSLY. Threading
+// async through that whole call graph for a storage-layer swap was judged
+// too large/risky; instead, one middleware (see app.js) awaits
+// ensureFreshSnapshot() once per request, and everything below keeps
+// reading the resulting cache synchronously, unchanged. Worst case a
+// request sees data up to 3s stale — bounded, and always correct on a cold
+// start (cache starts empty, so the first read is a real fetch) — never
+// permanently wrong the way an unbounded in-memory cache would be on a
+// serverless platform that can spin up fresh instances at any time.
 //
 // Storage is sparse (ISO weekEnding -> value) because the real master
 // calendar (shared/weekCalendar.mjs) is 231 weeks and almost all of them
@@ -20,10 +33,9 @@
 // goalDirection, format, aggregationMethod, stackKeys/groupKeys,
 // headerValues, targetLine, yDomain, description) comes from
 // shared/metricRegistry.mjs and is merged in here, on every read.
-const fs = require("fs");
-const path = require("path");
 const sharedRegistry = require("./sharedRegistry");
 const { toPositional } = require("./sparseFormat");
+const supabase = require("./supabaseClient");
 
 const salesSeed = require("./seed/salesSeed");
 const inventorySeed = require("./seed/inventorySeed");
@@ -41,28 +53,56 @@ const SEED_BY_DEPARTMENT = {
   "customer-service": customerServiceSeed,
 };
 
-const UPLOADS_DIR = path.join(__dirname, "uploads");
-const ACTIVE_POINTER_FILE = path.join(UPLOADS_DIR, "active.json");
 const DEFAULT_WINDOW_WEEKS = 12;
+const CACHE_TTL_MS = 3000;
 
-function readJson(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
-  } catch {
-    return null;
-  }
+// null = "no active snapshot yet" (fresh deployment, falls back to seed
+// everywhere below, same as the old file-based "no active.json" case).
+let cachedSnapshot = null;
+let cachedAt = 0;
+let hasFetchedOnce = false;
+
+async function fetchActiveSnapshotFromSupabase() {
+  const { data: pointerRow, error: pointerError } = await supabase
+    .from("app_state")
+    .select("value")
+    .eq("key", "active_snapshot")
+    .maybeSingle();
+  if (pointerError) throw new Error(`Failed to read active snapshot pointer: ${pointerError.message}`);
+  const pointer = pointerRow?.value ?? null;
+  if (!pointer?.timestamp) return null;
+
+  const { data: snapshotRow, error: snapshotError } = await supabase
+    .from("snapshots")
+    .select("departments")
+    .eq("id", pointer.timestamp)
+    .maybeSingle();
+  if (snapshotError) throw new Error(`Failed to read snapshot: ${snapshotError.message}`);
+  if (!snapshotRow) return null;
+
+  return { departments: snapshotRow.departments, meta: pointer };
 }
 
-function getActivePointer() {
-  return readJson(ACTIVE_POINTER_FILE);
+// Called by app.js's middleware on (almost) every request. A cache hit is a
+// synchronous-feeling no-op; a miss/stale cache does one real fetch.
+async function ensureFreshSnapshot() {
+  if (hasFetchedOnce && Date.now() - cachedAt < CACHE_TTL_MS) return;
+  cachedSnapshot = await fetchActiveSnapshotFromSupabase();
+  cachedAt = Date.now();
+  hasFetchedOnce = true;
+}
+
+// Called by snapshotService.js immediately after a successful write, so the
+// request that just wrote sees its own write instantly — never waits out
+// the TTL to see its own change.
+function setCachedSnapshot(snapshot) {
+  cachedSnapshot = snapshot;
+  cachedAt = Date.now();
+  hasFetchedOnce = true;
 }
 
 function getActiveSnapshot() {
-  const pointer = getActivePointer();
-  if (!pointer?.file) return null;
-  const snapshot = readJson(path.join(UPLOADS_DIR, pointer.file));
-  if (!snapshot) return null;
-  return { ...snapshot, meta: pointer };
+  return cachedSnapshot;
 }
 
 function mergeWithRegistry(metric) {
@@ -167,7 +207,7 @@ function isUsingSampleData() {
   return !getActiveSnapshot();
 }
 
-// The single latest ISO weekEnding with any real data anywhere across all 4
+// The single latest ISO weekEnding with any real data anywhere across all
 // departments — the anchor date-range presets (Last 26 weeks, YTD, etc.)
 // are computed from. Shared with entryService.js's default-week logic so
 // there's one definition of "latest data" in the app, not two.
@@ -194,8 +234,6 @@ function getSeedCatalog(departmentKey, options = {}) {
 }
 
 module.exports = {
-  UPLOADS_DIR,
-  ACTIVE_POINTER_FILE,
   SEED_BY_DEPARTMENT,
   getDepartmentData,
   getSparseDepartmentData,
@@ -204,4 +242,6 @@ module.exports = {
   getActiveSnapshotMeta,
   getSeedCatalog,
   getLatestDataWeekEndingAcrossDepartments,
+  ensureFreshSnapshot,
+  setCachedSnapshot,
 };

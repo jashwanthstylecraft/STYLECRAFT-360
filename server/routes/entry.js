@@ -11,11 +11,15 @@ router.get("/coverage", (req, res) => {
   res.json(entryService.getCoverage());
 });
 
-router.put("/week/:weekEnding", (req, res) => {
+router.put("/week/:weekEnding", async (req, res) => {
   const { entries, note } = req.body || {};
-  const result = entryService.saveWeek({ weekEnding: req.params.weekEnding, entries, note });
-  if (!result.ok) return res.status(400).json(result);
-  res.json(result);
+  try {
+    const result = await entryService.saveWeek({ weekEnding: req.params.weekEnding, entries, note });
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

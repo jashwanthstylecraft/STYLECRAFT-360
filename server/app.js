@@ -23,6 +23,7 @@ const exportRouter = require("./routes/export");
 const authRouter = require("./routes/auth");
 const usersRouter = require("./routes/users");
 const { requireAuth, requireRole } = require("./middleware/auth");
+const repository = require("./data/repository");
 
 const app = express();
 
@@ -38,6 +39,19 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRouter);
 
 app.use(requireAuth);
+
+// Keeps repository.js's in-memory active-snapshot cache from going stale —
+// see the big comment at the top of data/repository.js for why this is a
+// short-TTL cache-refresh rather than threading async through the ~13
+// files that read department data.
+app.use(async (req, res, next) => {
+  try {
+    await repository.ensureFreshSnapshot();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.use("/api/sales", salesRouter);
 app.use("/api/inventory", inventoryRouter);

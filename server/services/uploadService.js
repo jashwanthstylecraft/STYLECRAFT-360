@@ -1,5 +1,6 @@
 const XLSX = require("xlsx");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const repository = require("../data/repository");
 const { toSparse } = require("../data/sparseFormat");
@@ -8,7 +9,17 @@ const snapshotService = require("./snapshotService");
 const { COUNTER_SHEET, COUNTER_KEY, DATA_SHEET, GRAPHS_SHEET, META_MARKER, FIXED_COLUMNS } = require("./xlsxSchema");
 const { lookupHeading, normalizeHeading } = require("./xlsxHeadingMap");
 
-const { UPLOADS_DIR } = repository;
+// Local staging only — pending uploads are short-lived (1hr TTL) scratch
+// state for the upload->preview->apply flow, separate from the Supabase-
+// backed snapshot storage in repository.js/snapshotService.js. Lives under
+// the OS temp dir (not a path inside the app itself) because on Vercel the
+// deployed function bundle is read-only — only os.tmpdir() is writable.
+// That does mean a pending upload isn't guaranteed to survive to a later
+// request if Vercel routes it to a different cold instance; applyUpload()
+// already handles a missing pending file gracefully ("this upload has
+// expired... please upload again") rather than crashing, so the failure
+// mode on Vercel is "re-upload," never data loss or corruption.
+const UPLOADS_DIR = path.join(os.tmpdir(), "stylecraft-360-uploads");
 const PENDING_DIR = path.join(UPLOADS_DIR, "pending");
 const PENDING_TTL_MS = 60 * 60 * 1000;
 const WEEK_COUNT = 10;
@@ -527,7 +538,7 @@ function receiveUpload(buffer, originalFilename) {
   return { uploadId, ...parsed };
 }
 
-function applyUpload(uploadId, note) {
+async function applyUpload(uploadId, note) {
   const file = pendingFile(uploadId);
   if (!fs.existsSync(file)) {
     throw new Error("This upload has expired or was already applied — please upload the file again.");
@@ -537,7 +548,7 @@ function applyUpload(uploadId, note) {
     throw new Error("This upload still has validation errors and can't be applied.");
   }
 
-  const meta = snapshotService.commitSnapshot(pending.departments, {
+  const meta = await snapshotService.commitSnapshot(pending.departments, {
     filename: pending.originalFilename,
     note: note || "",
     source: "Upload",
@@ -545,7 +556,7 @@ function applyUpload(uploadId, note) {
   fs.unlinkSync(file);
 
   if (typeof pending.counterOverride === "number") {
-    counterService.setTotal(pending.counterOverride);
+    await counterService.setTotal(pending.counterOverride);
   }
 
   return meta;
