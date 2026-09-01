@@ -4,7 +4,6 @@ export const PRESETS = [
   { value: "last12weeks", label: "Last 12 weeks" },
   { value: "last26weeks", label: "Last 26 weeks" },
   { value: "ytd", label: "Year to date" },
-  { value: "lastQuarter", label: "Last quarter" },
   { value: "last12months", label: "Last 12 months" },
   { value: "alltime", label: "All time" },
   { value: "custom", label: "Custom range" },
@@ -34,14 +33,6 @@ export function rangeForPreset(preset, anchorWeekEnding, custom) {
     const year = upToAnchor[upToAnchor.length - 1].year;
     const firstOfYear = upToAnchor.find((w) => w.year === year);
     return { from: firstOfYear.weekEnding, to: anchorWeekEnding };
-  }
-  if (preset === "lastQuarter") {
-    const anchorQuarter = upToAnchor[upToAnchor.length - 1].quarter;
-    const [year, q] = anchorQuarter.split("-Q").map(Number);
-    const prevQuarter = q === 1 ? `${year - 1}-Q4` : `${year}-Q${q - 1}`;
-    const weeksInQuarter = generateWeeks().filter((w) => w.quarter === prevQuarter);
-    if (weeksInQuarter.length === 0) return null;
-    return { from: weeksInQuarter[0].weekEnding, to: weeksInQuarter[weeksInQuarter.length - 1].weekEnding };
   }
   return null;
 }

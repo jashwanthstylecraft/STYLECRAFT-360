@@ -11,6 +11,12 @@ import { usePeriod } from "../../hooks/usePeriod";
 // flips the icon itself to track good/bad instead of literal direction (up =
 // improving, down = worsening) — opt-in, off by default so every other card
 // keeps showing the number's actual direction.
+// Always rendered as a pill — matches AttainmentPill's tier colors so every
+// trend badge across the app reads as one consistent visual family.
+const GOOD_PILL = "bg-green-50 text-positive ring-green-200 dark:bg-green-500/10 dark:ring-green-500/30";
+const BAD_PILL = "bg-red-50 text-negative ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30";
+const FLAT_PILL = "bg-slate-50 text-ink-muted ring-slate-200 dark:bg-white/5 dark:ring-white/10";
+
 export default function TrendArrow({
   deltaPct,
   positiveIsGood = true,
@@ -36,15 +42,15 @@ export default function TrendArrow({
   const isFlat = !isInfinite && Math.abs(deltaPct) < 0.05;
   const isUp = deltaPct > 0;
   const isGood = isFlat ? true : isUp === positiveIsGood;
-  const colorClass = isFlat ? "text-ink-muted" : isGood ? "text-positive" : "text-negative";
+  const pillClass = isFlat ? FLAT_PILL : isGood ? GOOD_PILL : BAD_PILL;
   const pointsUp = arrowMeansGood ? isGood : isUp;
   const Icon = isFlat ? Minus : pointsUp ? ArrowUp : ArrowDown;
 
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${colorClass}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${pillClass}`}>
       <Icon size={13} strokeWidth={2.5} />
       {isInfinite ? "New" : formatter(Math.abs(deltaPct))}
-      {resolvedSuffix && !isInfinite && <span className="text-ink-muted">{resolvedSuffix}</span>}
+      {resolvedSuffix && !isInfinite && <span>{resolvedSuffix}</span>}
     </span>
   );
 }

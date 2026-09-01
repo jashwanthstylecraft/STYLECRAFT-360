@@ -2,7 +2,6 @@ import { AlertTriangle } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import KpiCard from "../components/kpi/KpiCard";
 import KpiCardSkeleton from "../components/kpi/KpiCardSkeleton";
-import InventorySummaryStrip from "../components/dashboard/InventorySummaryStrip";
 import SampleDataBadge from "../components/data/SampleDataBadge";
 import { useInventoryMetrics } from "../hooks/useInventoryMetrics";
 import { useDateRangeLabel } from "../hooks/useDateRange";
@@ -43,18 +42,6 @@ export default function Inventory() {
 
       {!isError && (
         <>
-          <div className="mb-6">
-            {data ? (
-              <InventorySummaryStrip summary={data.summary} />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-[92px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {isLoading && Array.from({ length: 4 }).map((_, i) => <KpiCardSkeleton key={i} />)}
 

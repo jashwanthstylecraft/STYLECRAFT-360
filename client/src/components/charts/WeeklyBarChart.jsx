@@ -16,6 +16,27 @@ import { formatValue } from "../../utils/format";
 import { useChartColors } from "../../utils/theme";
 import { xAxisInterval, shouldUseLineFallback } from "../../utils/chartDensity";
 
+// Recharts' default auto-ticks are evenly spaced in the raw domain, but once
+// rounded to whole percent for display (via formatValue) that can look
+// uneven — e.g. a [0.4, 0.65] domain split into 5 auto-ticks rounds to
+// 40/47/53/59/65, not a clean 5-point step. Snapping to a round percent step
+// keeps both the raw spacing AND the displayed labels even.
+const NICE_PERCENT_STEPS = [1, 2, 2.5, 5, 10, 20, 25, 50];
+
+function computePercentTicks(domain) {
+  if (!domain) return undefined;
+  const [min, max] = domain;
+  const spanPct = (max - min) * 100;
+  if (!(spanPct > 0)) return undefined;
+  const rawStep = spanPct / 5;
+  const step = NICE_PERCENT_STEPS.find((s) => s >= rawStep) ?? NICE_PERCENT_STEPS[NICE_PERCENT_STEPS.length - 1];
+  const startPct = Math.floor(min * 100 / step) * step;
+  const endPct = Math.ceil(max * 100 / step) * step;
+  const ticks = [];
+  for (let v = startPct; v <= endPct + 0.001; v += step) ticks.push(Math.round(v * 100) / 10000);
+  return ticks;
+}
+
 // A left-to-right cascade needs each bar's grow-in to start at its own time —
 // Recharts' built-in Bar animation doesn't honor a per-Cell animationBegin
 // override (verified: every bar starts together regardless), so when a
@@ -66,6 +87,8 @@ export default function WeeklyBarChart({
   showBrush = false,
 }) {
   const COLORS = useChartColors();
+  const percentTicks = valueFormat === "percent" ? computePercentTicks(yDomain) : undefined;
+  const resolvedDomain = percentTicks ? [percentTicks[0], percentTicks[percentTicks.length - 1]] : yDomain;
   const data = weeks.map((week, i) => ({
     week,
     actual: series[i] ?? null,
@@ -90,7 +113,8 @@ export default function WeeklyBarChart({
           interval={xAxisInterval(weeks.length, labelThinThreshold)}
         />
         <YAxis
-          domain={yDomain}
+          domain={resolvedDomain}
+          ticks={percentTicks}
           tick={{ fontSize: 11, fill: COLORS.axisText }}
           tickFormatter={(v) => formatValue(v, valueFormat)}
           tickLine={false}

@@ -1,6 +1,5 @@
 import { BarChart, Bar, Brush, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ChartTooltip from "./ChartTooltip";
-import ChartLegend from "./ChartLegend";
 import { formatCurrencyCompact } from "../../utils/format";
 import { useChartColors } from "../../utils/theme";
 import { xAxisInterval } from "../../utils/chartDensity";
@@ -82,12 +81,6 @@ export default function GroupedBarChart({
           )}
         </BarChart>
       </ResponsiveContainer>
-      <ChartLegend
-        items={[
-          { label: "Pre-orders", color: COLORS.actual, shape: "rect" },
-          { label: "Backorders", color: COLORS.goal, shape: "rect" },
-        ]}
-      />
     </div>
   );
 }

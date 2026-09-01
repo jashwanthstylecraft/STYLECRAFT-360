@@ -14,22 +14,22 @@ import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
 function GroupedHeader({ name, preorderTotal, backorderTotal, preorderWowDeltaPct, backorderWowDeltaPct }) {
   return (
     <div>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-ink-secondary">{name}</h3>
-      <div className="mt-2 flex items-baseline gap-5">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Pre-order</div>
-          <div className="text-[28px] font-bold tabular-nums leading-tight text-actual-strong">
+      <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
+      <div className="mt-3 flex w-full items-baseline justify-center gap-8 border border-black/40 p-3 dark:border-white/15">
+        <div className="flex-1 text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-actual-strong">Pre-order</div>
+          <div className="text-[32px] font-bold tabular-nums leading-tight text-actual-strong">
             {formatCurrencyCompact(preorderTotal)}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Backorder</div>
-          <div className="text-[28px] font-bold tabular-nums leading-tight text-actual-strong">
+        <div className="flex-1 text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-goal">Backorder</div>
+          <div className="text-[32px] font-bold tabular-nums leading-tight text-goal">
             {formatCurrencyCompact(backorderTotal)}
           </div>
         </div>
       </div>
-      <div className="mt-2.5 flex items-center gap-3">
+      <div className="mt-2.5 flex items-center justify-center gap-3">
         <TrendArrow deltaPct={preorderWowDeltaPct} arrowMeansGood />
         <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} arrowMeansGood />
       </div>
@@ -53,10 +53,10 @@ export default function KpiCard({ metric, weeks, basePath = "/sales", department
   const chart = <MetricChart metric={metric} weeks={weeks} chartAnim={chartAnim} />;
 
   return (
-    <motion.div {...cardMotionProps(motionVariant, index, reduceMotion)}>
+    <motion.div className="h-full" {...cardMotionProps(motionVariant, index, reduceMotion)}>
       <Link
         to={`${basePath}/${metric.slug}`}
-        className="block rounded-2xl border border-surface-border bg-surface-card p-5 shadow-sm transition-shadow hover:shadow-md"
+        className="block h-full rounded-none border-2 border-black bg-surface-card p-5 shadow-sm transition-shadow hover:shadow-md dark:rounded-2xl dark:border dark:border-surface-border"
       >
         {hasValuesHeader ? (
           <ValuesHeader name={metric.name} values={metric.headerValues} goalDirection={metric.goalDirection} />

@@ -1,8 +1,7 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Clock } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import KpiCard from "../components/kpi/KpiCard";
 import KpiCardSkeleton from "../components/kpi/KpiCardSkeleton";
-import MarketingSummaryStrip from "../components/dashboard/MarketingSummaryStrip";
 import SampleDataBadge from "../components/data/SampleDataBadge";
 import { useMarketingMetrics } from "../hooks/useMarketingMetrics";
 import { useDateRangeLabel } from "../hooks/useDateRange";
@@ -15,10 +14,22 @@ function PageHeader({ dateRangeLabel, isSampleData }) {
       <div>
         <h1 className="text-2xl font-bold text-heading">Marketing</h1>
         <p className="mt-1 text-sm text-ink-secondary">
-          Social growth and product reviews · <span className="font-medium text-ink">{dateRangeLabel}</span>
+          Reserved for future metrics · <span className="font-medium text-ink">{dateRangeLabel}</span>
         </p>
       </div>
       <SampleDataBadge isSampleData={isSampleData} />
+    </div>
+  );
+}
+
+function ComingSoon() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-surface-border bg-surface-card px-6 py-16 text-center">
+      <Clock size={28} className="text-ink-muted" />
+      <div className="text-sm font-semibold text-heading">No metrics here yet</div>
+      <div className="max-w-sm text-sm text-ink-secondary">
+        This department is reserved for future use — its metrics will show up here once they're added.
+      </div>
     </div>
   );
 }
@@ -41,36 +52,24 @@ export default function Marketing() {
         </div>
       )}
 
-      {!isError && (
-        <>
-          <div className="mb-6">
-            {data ? (
-              <MarketingSummaryStrip summary={data.summary} />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="h-[92px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-                ))}
-              </div>
-            )}
-          </div>
+      {!isError && !isLoading && data?.metrics.length === 0 && <ComingSoon />}
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            {isLoading && Array.from({ length: 2 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+      {!isError && (isLoading || data?.metrics.length > 0) && (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {isLoading && Array.from({ length: 2 }).map((_, i) => <KpiCardSkeleton key={i} />)}
 
-            {data?.metrics.map((metric, index) => (
-              <KpiCard
-                key={metric.slug}
-                metric={metric}
-                weeks={data.weeks}
-                basePath={BASE_PATH}
-                departmentKey="marketing"
-                motionVariant="fadeUp"
-                index={index}
-              />
-            ))}
-          </div>
-        </>
+          {data?.metrics.map((metric, index) => (
+            <KpiCard
+              key={metric.slug}
+              metric={metric}
+              weeks={data.weeks}
+              basePath={BASE_PATH}
+              departmentKey="marketing"
+              motionVariant="fadeUp"
+              index={index}
+            />
+          ))}
+        </div>
       )}
     </PageShell>
   );

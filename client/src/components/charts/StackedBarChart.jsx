@@ -62,6 +62,8 @@ export default function StackedBarChart({
   height = 196,
   labelThinThreshold,
   showBrush = false,
+  showLegend = true,
+  showSegmentLabels = true,
 }) {
   const COLORS = useChartColors();
   const resolvedColors = colors ?? [COLORS.actual, COLORS.gammaPlus];
@@ -86,6 +88,16 @@ export default function StackedBarChart({
 
   return (
     <div>
+      {showLegend && (
+        <div className="mb-1 flex justify-center">
+          <ChartLegend
+            items={[
+              { label: baseLabel, color: baseColor, shape: "rect" },
+              { label: topLabel, color: topColor, shape: "rect" },
+            ]}
+          />
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke={COLORS.gridline} />
@@ -141,7 +153,7 @@ export default function StackedBarChart({
             animationEasing={animationEasing}
             animationBegin={0}
           >
-            <LabelList dataKey={baseKey} content={SegmentLabel} />
+            {showSegmentLabels && <LabelList dataKey={baseKey} content={SegmentLabel} />}
           </Bar>
           <Bar
             dataKey={topKey}
@@ -155,7 +167,7 @@ export default function StackedBarChart({
             animationEasing={animationEasing}
             animationBegin={animationBeginSecond}
           >
-            <LabelList dataKey={topKey} content={SegmentLabel} />
+            {showSegmentLabels && <LabelList dataKey={topKey} content={SegmentLabel} />}
           </Bar>
           {goalSeries && (
             <Line
@@ -176,14 +188,6 @@ export default function StackedBarChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
-      <div className="mt-1 flex items-center justify-between">
-        <ChartLegend
-          items={[
-            { label: baseLabel, color: baseColor, shape: "rect" },
-            { label: topLabel, color: topColor, shape: "rect" },
-          ]}
-        />
-      </div>
     </div>
   );
 }

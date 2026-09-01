@@ -11,14 +11,19 @@ export default function ValuesHeader({ name, values, goalDirection = "higher" })
 
   return (
     <div>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-ink-secondary">{name}</h3>
+      <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
 
-      <div className="mt-2 flex items-baseline gap-5">
-        {values.map((entry, i) => (
-          <div key={entry.label}>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{entry.label}</div>
+      <div className="mt-3 flex w-full items-baseline justify-center gap-8 border border-black/40 p-3 dark:border-white/15">
+        {values.map((entry) => (
+          <div key={entry.label} className="flex-1 text-center">
             <div
-              className={`font-bold tabular-nums leading-tight ${i === 0 ? "text-[28px]" : "text-lg"}`}
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: resolveNamedColor(entry.color) }}
+            >
+              {entry.label}
+            </div>
+            <div
+              className="text-[32px] font-bold tabular-nums leading-tight"
               style={{ color: resolveNamedColor(entry.color) }}
             >
               {formatValue(entry.value, entry.format)}
@@ -27,7 +32,7 @@ export default function ValuesHeader({ name, values, goalDirection = "higher" })
         ))}
       </div>
 
-      <div className="mt-2.5 flex items-center gap-3">
+      <div className="mt-2.5 flex items-center justify-center gap-3">
         {values.map((entry) => (
           <TrendArrow key={entry.label} deltaPct={entry.wowDeltaPct} positiveIsGood={goalDirection !== "lower"} />
         ))}

@@ -183,7 +183,7 @@ export const METRICS = [
   {
     slug: "new-social-follow-subs",
     name: "NEW Social Follow/Subs",
-    department: "marketing",
+    department: "operations",
     chartType: "stacked",
     goalDirection: "higher",
     aggregationMethod: "sum",
@@ -213,7 +213,7 @@ export const METRICS = [
   {
     slug: "defective-returns",
     name: "Defective Returns",
-    department: "customer-service",
+    department: "operations",
     chartType: "bar",
     goalDirection: "lower",
     goalLabel: "Budget",
@@ -249,7 +249,7 @@ export const METRICS = [
   {
     slug: "product-reviews",
     name: "# of Product Reviews",
-    department: "marketing",
+    department: "operations",
     chartType: "bar",
     goalDirection: "higher",
     format: "count",
@@ -259,7 +259,7 @@ export const METRICS = [
   {
     slug: "repair-rate",
     name: "Repair Rate %",
-    department: "customer-service",
+    department: "operations",
     chartType: "percentBar",
     goalDirection: "higher",
     format: "percent",
@@ -290,7 +290,7 @@ export const METRICS = [
   {
     slug: "customer-returns",
     name: "Customer Returns",
-    department: "customer-service",
+    department: "operations",
     chartType: "bar",
     goalDirection: "lower",
     goalLabel: "Budget",

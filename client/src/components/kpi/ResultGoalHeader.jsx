@@ -18,26 +18,28 @@ export default function ResultGoalHeader({
 
   return (
     <div>
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-ink-secondary">{name}</h3>
+      <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
 
-      <div className="mt-2 flex items-baseline gap-5">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Result</div>
+      <div className="mt-3 flex w-full items-baseline justify-center gap-8 border border-black/40 p-3 dark:border-white/15">
+        <div className="flex-1 text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-actual-strong">Result</div>
           <div
-            className={`text-[28px] font-bold tabular-nums leading-tight ${
+            className={`text-[32px] font-bold tabular-nums leading-tight ${
               resultIsNegative ? "text-negative" : "text-actual-strong"
             }`}
           >
-            {formatValue(result, format)}
+            {formatValue(result, format, { roundThousands: true })}
           </div>
         </div>
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{goalLabel}</div>
-          <div className="text-lg font-bold tabular-nums leading-tight text-goal">{formatValue(goal, format)}</div>
+        <div className="flex-1 text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-goal">{goalLabel}</div>
+          <div className="text-[32px] font-bold tabular-nums leading-tight text-goal">
+            {formatValue(goal, format, { roundThousands: true })}
+          </div>
         </div>
       </div>
 
-      <div className="mt-2.5 flex items-center gap-2.5">
+      <div className="mt-2.5 flex items-center justify-center gap-2.5">
         <AttainmentPill attainmentPct={attainmentPct} result={result} goal={goal} goalDirection={goalDirection} goalLabel={goalLabel} />
         <TrendArrow deltaPct={wowDeltaPct} positiveIsGood={goalDirection !== "lower"} />
       </div>

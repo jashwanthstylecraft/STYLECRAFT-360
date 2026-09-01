@@ -2,14 +2,15 @@ const repository = require("../data/repository");
 const { wowDeltaPct, seriesForKey, sumOrNull, avgOrNull, buildMetric } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
-// Defective Returns, Repair Rate %, and Customer Returns moved to
-// Customer Service, and NEW Social Follow/Subs moved to Marketing (their
-// `futureDepartment` tags always intended this — see shared/metricRegistry.mjs
-// and the README's "How to add a department" section). Operations' summary
-// now highlights its 5 remaining metrics: Shipping Time, Invoice Errors &
+// Defective Returns, Repair Rate %, Customer Returns, and NEW Social
+// Follow/Subs moved back in from the now-empty Customer Service and
+// Marketing departments (kept as real, empty departments for future use —
+// see shared/metricRegistry.mjs). This summary still only highlights
+// Operations' original 4 metrics — Shipping Time, Invoice Errors &
 // Shortages, Artwork Out the Door, and Education Events (Guru Cards Created
-// still gets a full card on the page, just not a summary tile — the same
-// "not every metric needs a summary tile" pattern Sales/Inventory already use).
+// and the newly-moved-in metrics still get a full card on the page, just not
+// a summary tile — the same "not every metric needs a summary tile" pattern
+// Sales/Inventory already use).
 function buildSummary(WEEKS, METRICS) {
   const latestIndex = WEEKS.length - 1;
   const bySlug = (slug) => METRICS.find((m) => m.slug === slug);

@@ -7,6 +7,20 @@ export function formatCurrencyCompact(value) {
   return `${sign}$${abs.toLocaleString("en-US")}`;
 }
 
+// Same as formatCurrencyCompact, but the thousands ("K") tier rounds to a
+// whole number instead of keeping 2 decimals — for the Result/Goal header
+// display only, where "$238.85K" reads as noise next to a whole "$553K".
+// Millions stay at full precision; this only ever changes the STRING shown,
+// never the underlying value.
+export function formatCurrencyCompactRounded(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}$${trimDecimal(abs / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}K`;
+  return `${sign}$${abs.toLocaleString("en-US")}`;
+}
+
 export function formatCurrencyFull(value) {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return value.toLocaleString("en-US", {
@@ -41,8 +55,9 @@ export function formatCount(value) {
 
 // Dispatches to the right formatter for a metric's declared `format` field.
 // Defaults to currency so Phase 1 metrics (which never set `format`) render
-// exactly as before.
-export function formatValue(value, format = "currency") {
+// exactly as before. `roundThousands` swaps in formatCurrencyCompactRounded
+// for the currency case — opt in only where a whole-K display is wanted.
+export function formatValue(value, format = "currency", { roundThousands = false } = {}) {
   switch (format) {
     case "percent":
       return formatPercentFraction(value);
@@ -52,7 +67,7 @@ export function formatValue(value, format = "currency") {
       return formatCount(value);
     case "currency":
     default:
-      return formatCurrencyCompact(value);
+      return roundThousands ? formatCurrencyCompactRounded(value) : formatCurrencyCompact(value);
   }
 }
 

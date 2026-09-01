@@ -3,10 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --color-surface: #f5f7fa;
+  --color-surface: #e2e8f0;
   --color-surface-card: #ffffff;
-  --color-surface-border: #e2e8f0;
-  --color-surface-hover: #f8fafc;
+  --color-surface-border: #cbd5e1;
+  --color-surface-hover: #f1f5f9;
 
   --color-heading: #0b2447;
   --color-ink: #0f172a;

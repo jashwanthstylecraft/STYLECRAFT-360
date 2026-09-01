@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Check, ChevronDown, Menu, Sun, Moon } from "lucide-react";
 import CompactCounter from "../counter/CompactCounter";
-import PeriodSelector from "./PeriodSelector";
 import { useTheme } from "../../contexts/ThemeContext";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
 import { animateThemeToggle } from "../../utils/viewTransitionTheme";
@@ -152,7 +151,6 @@ export default function TopBar({ lastUpdated, onOpenMobileNav, showCounter = tru
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
-        <PeriodSelector />
         <DateRangeSelector />
         <ThemeToggle />
         <div className="hidden text-xs text-ink-secondary sm:block">

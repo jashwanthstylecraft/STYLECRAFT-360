@@ -17,7 +17,7 @@ export const DEPARTMENTS = [
   { slug: "operations", label: "Operations", path: "/operations", icon: Truck, enabled: true },
   { slug: "inventory", label: "Inventory", path: "/inventory", icon: Boxes, enabled: true },
   { slug: "finance", label: "Finance", path: "/finance", icon: Wallet, enabled: true },
-  { slug: "customer-service", label: "Customer Service", path: "/customer-service", icon: Headset, enabled: true },
-  { slug: "marketing", label: "Marketing", path: "/marketing", icon: Megaphone, enabled: true },
+  { slug: "customer-service", label: "Customer Service", path: "/customer-service", icon: Headset, enabled: false },
+  { slug: "marketing", label: "Marketing", path: "/marketing", icon: Megaphone, enabled: false },
   { slug: "manufacturing", label: "Manufacturing", path: "/manufacturing", icon: Factory, enabled: false },
 ];

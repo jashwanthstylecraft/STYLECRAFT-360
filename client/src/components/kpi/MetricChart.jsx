@@ -48,6 +48,7 @@ export default function MetricChart({ metric, weeks, chartAnim = {}, heroProps =
         colors={metric.headerValues.map((v) => resolveNamedColor(v.color))}
         goalLabel="Target"
         valueFormat={metric.headerValues[0].format}
+        showSegmentLabels={false}
         {...chartAnim}
         {...heroProps}
       />
@@ -61,6 +62,7 @@ export default function MetricChart({ metric, weeks, chartAnim = {}, heroProps =
         series={metric.series}
         goalSeries={metric.goalSeries}
         stackKeys={metric.stackKeys}
+        showLegend={false}
         {...chartAnim}
         {...heroProps}
       />
@@ -81,6 +83,7 @@ export default function MetricChart({ metric, weeks, chartAnim = {}, heroProps =
         colors={metric.headerValues.map((v) => resolveNamedColor(v.color))}
         targetLine={metric.targetLine}
         valueFormat={metric.headerValues[0].format}
+        showLegend={!["in-stock-percentage", "shipping-time-days", "education-events"].includes(metric.slug)}
         {...chartAnim}
         {...heroProps}
       />

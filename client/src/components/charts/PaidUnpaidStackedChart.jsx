@@ -67,6 +67,14 @@ export default function PaidUnpaidStackedChart({
 
   return (
     <div>
+      <div className="mb-1 flex justify-center">
+        <ChartLegend
+          items={[
+            { label: "Paid", color: COLORS.actual, shape: "rect" },
+            { label: "Unpaid", color: COLORS.actual, fill: COLORS.unpaidFill, shape: "dashed-rect" },
+          ]}
+        />
+      </div>
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke={COLORS.gridline} />
@@ -143,12 +151,6 @@ export default function PaidUnpaidStackedChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
-      <ChartLegend
-        items={[
-          { label: "Paid", color: COLORS.actual, shape: "rect" },
-          { label: "Unpaid", color: COLORS.actual, fill: COLORS.unpaidFill, shape: "dashed-rect" },
-        ]}
-      />
     </div>
   );
 }

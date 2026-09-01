@@ -46,16 +46,11 @@ export default function AttainmentPill({ attainmentPct, result, goal, goalDirect
     );
   }
 
-  // Phase 1's exact copy ("92.5% to goal") is preserved for the default
-  // higher-is-better case; "of budget" reads better once a metric is framed
-  // as a ceiling ("143% of budget" vs. the nonsensical "143% to budget").
-  const preposition = goalDirection === "lower" ? "of" : "to";
-
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${tier.classes}`}
     >
-      {formatPercent(attainmentPct)} {preposition} {goalLabel.toLowerCase()}
+      {formatPercent(attainmentPct)} of {goalLabel.toLowerCase()}
     </span>
   );
 }
