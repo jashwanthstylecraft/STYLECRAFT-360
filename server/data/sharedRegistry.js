@@ -5,6 +5,7 @@
 // which are safe to use anywhere AFTER server/index.js has awaited `ready`
 // (before it calls app.listen — see there).
 const path = require("path");
+const customMetrics = require("./customMetrics");
 
 let registry = null;
 let weeks = null;
@@ -31,14 +32,22 @@ function assertReady(mod, name) {
 
 module.exports = {
   ready,
+  // Admin-added metrics (Settings → Add Graph, see data/customMetrics.js)
+  // are merged in here — the one seam every consumer (Data Entry, export,
+  // detail pages, department services) goes through, so nothing downstream
+  // needs to know a metric came from a database row instead of the static
+  // shared/metricRegistry.mjs file.
   get METRICS() {
-    return assertReady(registry, "METRICS").METRICS;
+    return [...assertReady(registry, "METRICS").METRICS, ...customMetrics.getCustomMetrics()];
   },
   getMetric(slug) {
-    return assertReady(registry, "getMetric").getMetric(slug);
+    return assertReady(registry, "getMetric").getMetric(slug) ?? customMetrics.getCustomMetrics().find((m) => m.slug === slug) ?? null;
   },
   getDepartmentMetrics(department) {
-    return assertReady(registry, "getDepartmentMetrics").getDepartmentMetrics(department);
+    return [
+      ...assertReady(registry, "getDepartmentMetrics").getDepartmentMetrics(department),
+      ...customMetrics.getCustomMetricsForDepartment(department),
+    ];
   },
   seriesKeysFor(metric) {
     return assertReady(registry, "seriesKeysFor").seriesKeysFor(metric);

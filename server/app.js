@@ -24,6 +24,8 @@ const authRouter = require("./routes/auth");
 const usersRouter = require("./routes/users");
 const { requireAuth, requireRole } = require("./middleware/auth");
 const repository = require("./data/repository");
+const customMetrics = require("./data/customMetrics");
+const customMetricsRouter = require("./routes/customMetrics");
 
 const app = express();
 
@@ -47,6 +49,7 @@ app.use(requireAuth);
 app.use(async (req, res, next) => {
   try {
     await repository.ensureFreshSnapshot();
+    await customMetrics.ensureFreshCustomMetrics();
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,5 +76,6 @@ app.use("/api/entry", requireRole("admin"), entryRouter);
 app.use("/api/data", dataRouter);
 app.use("/api/export", requireRole("admin"), exportRouter);
 app.use("/api/users", requireRole("admin"), usersRouter);
+app.use("/api/custom-metrics", requireRole("admin"), customMetricsRouter);
 
 module.exports = app;

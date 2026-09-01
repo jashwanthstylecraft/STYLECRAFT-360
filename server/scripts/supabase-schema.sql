@@ -32,3 +32,15 @@ create table if not exists users (
   role text not null check (role in ('admin', 'viewer')),
   password_hash text not null
 );
+
+-- Admin-added metrics (Settings → Add Graph). Each row is merged into
+-- shared/metricRegistry.mjs's in-memory registry at read time (see
+-- server/data/customMetrics.js) — this is the ONLY structural difference
+-- from a built-in metric; its actual weekly numbers still live in the same
+-- snapshots.departments[department].METRICS sparse array as everything else.
+create table if not exists custom_metrics (
+  slug text primary key,
+  name text not null,
+  department text not null check (department in ('sales', 'inventory', 'finance', 'operations', 'marketing', 'customer-service')),
+  created_at timestamptz not null default now()
+);

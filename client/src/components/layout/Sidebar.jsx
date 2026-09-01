@@ -2,6 +2,7 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { Home, ChevronsLeft, ChevronsRight, X, UploadCloud, PencilLine, Settings, LogOut } from "lucide-react";
 import { DEPARTMENTS } from "../../config/departments";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDataStatus } from "../../hooks/useDataStatus";
 
 function NavItem({ to, label, Icon, enabled, collapsed, onNavigate }) {
   const content = (
@@ -46,6 +47,15 @@ export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCl
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
+  const { data: dataStatus } = useDataStatus();
+
+  // A department marked `enabled: false` in config (Marketing, Customer
+  // Service — kept empty on purpose, see shared/metricRegistry.mjs) comes
+  // back to life the moment it has a real metric (built-in or added via
+  // Settings → Add Graph) — no code change needed to "re-enable" a tab.
+  function isDeptEnabled(dept) {
+    return dept.enabled || (dataStatus?.departmentMetricCounts?.[dept.slug] ?? 0) > 0;
+  }
 
   async function handleLogout() {
     await logout();
@@ -99,7 +109,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCl
               to={dept.path}
               label={dept.label}
               Icon={dept.icon}
-              enabled={dept.enabled}
+              enabled={isDeptEnabled(dept)}
               collapsed={collapsed}
               onNavigate={onCloseMobile}
             />

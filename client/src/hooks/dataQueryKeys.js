@@ -10,6 +10,8 @@ export const DATA_DEPENDENT_QUERY_KEYS = [
   "inventory-metrics",
   "finance-metrics",
   "operations-metrics",
+  "marketing-metrics",
+  "customer-service-metrics",
   "home-summary",
   "home-insights",
   "metric-detail",
@@ -17,6 +19,7 @@ export const DATA_DEPENDENT_QUERY_KEYS = [
   "data-versions",
   "entry-data",
   "entry-coverage",
+  "custom-metrics",
 ];
 
 export function invalidateAllDataQueries(queryClient) {

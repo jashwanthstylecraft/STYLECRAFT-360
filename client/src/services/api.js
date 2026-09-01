@@ -158,3 +158,19 @@ export function resetUserPassword(username, password) {
     body: JSON.stringify({ password }),
   });
 }
+
+export function fetchCustomMetrics() {
+  return request("/custom-metrics");
+}
+
+export function addCustomMetric({ name, department }) {
+  return request("/custom-metrics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, department }),
+  });
+}
+
+export function removeCustomMetric(slug) {
+  return request(`/custom-metrics/${encodeURIComponent(slug)}`, { method: "DELETE" });
+}

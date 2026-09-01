@@ -3,10 +3,13 @@ const multer = require("multer");
 const repository = require("../data/repository");
 const uploadService = require("../services/uploadService");
 const { generateTemplateWorkbook } = require("../services/templateService");
+const sharedRegistry = require("../data/sharedRegistry");
 const { requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 const adminOnly = requireRole("admin");
+
+const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -20,10 +23,14 @@ const upload = multer({
 });
 
 router.get("/status", (req, res) => {
+  const departmentMetricCounts = Object.fromEntries(
+    DEPARTMENT_KEYS.map((key) => [key, sharedRegistry.getDepartmentMetrics(key).length])
+  );
   res.json({
     isSampleData: repository.isUsingSampleData(),
     active: repository.getActiveSnapshotMeta(),
     latestDataWeekEnding: repository.getLatestDataWeekEndingAcrossDepartments(),
+    departmentMetricCounts,
   });
 });
 

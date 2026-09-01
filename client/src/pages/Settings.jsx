@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,7 +9,26 @@ import { getReducedMotionOverride, setReducedMotionOverride } from "../hooks/use
 import { getVisibilityFloor, setVisibilityFloor } from "../utils/dataVisibility";
 import { snapToNearestWeekEnding } from "../utils/datePresets";
 import { CALENDAR_START, CALENDAR_END, formatWeekEndingLabel } from "../utils/weekCalendar";
-import { setCounterTotal, fetchUsers, addUser, removeUser, resetUserPassword } from "../services/api";
+import { invalidateAllDataQueries } from "../hooks/dataQueryKeys";
+import {
+  setCounterTotal,
+  fetchUsers,
+  addUser,
+  removeUser,
+  resetUserPassword,
+  fetchCustomMetrics,
+  addCustomMetric,
+  removeCustomMetric,
+} from "../services/api";
+
+const DEPARTMENT_OPTIONS = [
+  { value: "sales", label: "Sales" },
+  { value: "operations", label: "Operations" },
+  { value: "inventory", label: "Inventory" },
+  { value: "finance", label: "Finance" },
+  { value: "marketing", label: "Marketing" },
+  { value: "customer-service", label: "Customer Service" },
+];
 
 function SettingsSection({ title, description, children }) {
   return (
@@ -429,6 +449,125 @@ function TeamSection() {
   );
 }
 
+function AddGraphSection() {
+  const queryClient = useQueryClient();
+  const [metrics, setMetrics] = useState(null);
+  const [error, setError] = useState(null);
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[0].value);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const refresh = useCallback(() => {
+    fetchCustomMetrics()
+      .then((data) => setMetrics(data.metrics))
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await addCustomMetric({ name, department });
+      setName("");
+      refresh();
+      invalidateAllDataQueries(queryClient);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRemove(slug) {
+    setError(null);
+    try {
+      await removeCustomMetric(slug);
+      refresh();
+      invalidateAllDataQueries(queryClient);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Add a graph"
+      description="Adds a new metric card to a department, using the same styling as every other graph (Result vs. Goal, blue/red, standard chart) — just give it a title and pick a department. Enter its weekly numbers from Data Entry once it's added."
+    >
+      <div className="mb-4 space-y-2">
+        {metrics === null && <div className="text-sm text-ink-muted">Loading…</div>}
+        {metrics?.length === 0 && <div className="text-sm text-ink-muted">No custom graphs added yet.</div>}
+        {metrics?.map((m) => (
+          <div key={m.slug} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-ink">{m.name}</div>
+              <div className="truncate text-xs text-ink-muted">
+                {DEPARTMENT_OPTIONS.find((d) => d.value === m.department)?.label ?? m.department}
+              </div>
+            </div>
+            <button
+              onClick={() => handleRemove(m.slug)}
+              className="shrink-0 rounded-md p-1.5 text-negative hover:bg-surface-hover"
+              title="Remove"
+              aria-label={`Remove ${m.name}`}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[200px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Graph title</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Website Uptime"
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+            required
+          />
+        </div>
+        <div className="min-w-[160px]">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Department</label>
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+          >
+            {DEPARTMENT_OPTIONS.map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={!name.trim() || isSubmitting}
+          className="flex items-center gap-1.5 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <PlusCircle size={15} />
+          Add graph
+        </button>
+      </form>
+    </SettingsSection>
+  );
+}
+
 export default function Settings() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -445,6 +584,7 @@ export default function Settings() {
         <MotionSection />
         <DataVisibilitySection />
         {isAdmin && <CounterSection />}
+        {isAdmin && <AddGraphSection />}
         {isAdmin && <TeamSection />}
       </div>
     </PageShell>
