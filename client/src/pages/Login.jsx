@@ -3,12 +3,19 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
+// Pre-filled so a viewer (anyone with the link) can get into the read-only
+// dashboards in one click, without needing real credentials of their own —
+// a shared, admin-created account (Settings → Team), same viewer role and
+// restrictions as any other viewer.
+const GUEST_USERNAME = "guest@stylecraftus.com";
+const GUEST_PASSWORD = "stylecraft";
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(GUEST_USERNAME);
+  const [password, setPassword] = useState(GUEST_PASSWORD);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,6 +88,10 @@ export default function Login() {
             {isSubmitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-xs text-ink-muted">
+          Guest access is pre-filled — just click Sign in to view dashboards. Have your own account? Clear the fields and enter it instead.
+        </p>
       </div>
     </div>
   );
