@@ -456,16 +456,15 @@ function RenameGraphsSection() {
   const queryClient = useQueryClient();
   const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState(null);
-  const [drafts, setDrafts] = useState({});
-  const [savingSlug, setSavingSlug] = useState(null);
-  const [savedSlug, setSavedSlug] = useState(null);
+  const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[0].value);
+  const [slug, setSlug] = useState("");
+  const [draft, setDraft] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const refresh = useCallback(() => {
     fetchMetricNames()
-      .then((data) => {
-        setMetrics(data.metrics);
-        setDrafts(Object.fromEntries(data.metrics.map((m) => [m.slug, m.name])));
-      })
+      .then((data) => setMetrics(data.metrics))
       .catch((err) => setError(err.message));
   }, []);
 
@@ -473,51 +472,63 @@ function RenameGraphsSection() {
     refresh();
   }, [refresh]);
 
-  async function handleSave(slug) {
-    const name = drafts[slug]?.trim();
-    if (!name) return;
+  const deptMetrics = metrics?.filter((m) => m.department === department) ?? [];
+  const current = deptMetrics.find((m) => m.slug === slug) ?? deptMetrics[0] ?? null;
+
+  // Keep the selected slug valid as the department (or the metric list
+  // itself, after a save) changes, and keep the draft field in sync with
+  // whichever metric ends up selected.
+  useEffect(() => {
+    if (current && current.slug !== slug) setSlug(current.slug);
+    setDraft(current?.name ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [department, metrics]);
+
+  useEffect(() => {
+    setDraft(current?.name ?? "");
+    setSaved(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  const isDirty = current && draft.trim() && draft.trim() !== current.name;
+
+  async function handleSave() {
+    if (!current || !isDirty) return;
     setError(null);
-    setSavedSlug(null);
-    setSavingSlug(slug);
+    setIsSaving(true);
     try {
-      await renameMetric(slug, name);
+      await renameMetric(current.slug, draft.trim());
       refresh();
       invalidateAllDataQueries(queryClient);
-      setSavedSlug(slug);
+      setSaved(true);
     } catch (err) {
       setError(err.message);
     } finally {
-      setSavingSlug(null);
+      setIsSaving(false);
     }
   }
 
-  async function handleReset(slug) {
+  async function handleReset() {
+    if (!current?.isRenamed) return;
     setError(null);
-    setSavedSlug(null);
-    setSavingSlug(slug);
+    setIsSaving(true);
     try {
-      await resetMetricName(slug);
+      await resetMetricName(current.slug);
       refresh();
       invalidateAllDataQueries(queryClient);
+      setSaved(false);
     } catch (err) {
       setError(err.message);
     } finally {
-      setSavingSlug(null);
+      setIsSaving(false);
     }
   }
-
-  const grouped = DEPARTMENT_OPTIONS.map((d) => ({
-    ...d,
-    metrics: metrics?.filter((m) => m.department === d.value) ?? [],
-  })).filter((d) => d.metrics.length > 0);
 
   return (
     <SettingsSection
-      title="Rename graphs"
+      title="Rename a graph"
       description="Change the title shown on any graph's card, chart, and detail page — everywhere it appears."
     >
-      {metrics === null && <div className="text-sm text-ink-muted">Loading…</div>}
-
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
           <AlertTriangle size={16} />
@@ -525,51 +536,76 @@ function RenameGraphsSection() {
         </div>
       )}
 
-      <div className="space-y-5">
-        {grouped.map((d) => (
-          <div key={d.value}>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{d.label}</div>
-            <div className="space-y-2">
-              {d.metrics.map((m) => {
-                const draft = drafts[m.slug] ?? "";
-                const isDirty = Boolean(draft.trim()) && draft.trim() !== m.name;
-                return (
-                  <div key={m.slug} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={draft}
-                      onChange={(e) => {
-                        setDrafts((prev) => ({ ...prev, [m.slug]: e.target.value }));
-                        setSavedSlug(null);
-                      }}
-                      className="min-w-0 flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
-                    />
-                    <button
-                      onClick={() => handleSave(m.slug)}
-                      disabled={!isDirty || savingSlug === m.slug}
-                      className="shrink-0 rounded-lg bg-actual px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {savingSlug === m.slug ? "Saving…" : "Save"}
-                    </button>
-                    {m.isRenamed && (
-                      <button
-                        onClick={() => handleReset(m.slug)}
-                        disabled={savingSlug === m.slug}
-                        className="shrink-0 rounded-md p-1.5 text-ink-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-                        title="Reset to default name"
-                        aria-label={`Reset ${m.name} to its default name`}
-                      >
-                        <RotateCcw size={15} />
-                      </button>
-                    )}
-                    {savedSlug === m.slug && <Check size={16} className="shrink-0 text-positive" />}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[160px]">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Department</label>
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+          >
+            {DEPARTMENT_OPTIONS.map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-[200px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Graph</label>
+          <select
+            value={current?.slug ?? ""}
+            onChange={(e) => setSlug(e.target.value)}
+            disabled={deptMetrics.length === 0}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {deptMetrics.length === 0 && <option>No graphs in this department</option>}
+            {deptMetrics.map((m) => (
+              <option key={m.slug} value={m.slug}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-[200px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">New title</label>
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setSaved(false);
+            }}
+            disabled={!current}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!isDirty || isSaving}
+          className="shrink-0 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isSaving ? "Saving…" : "Save"}
+        </button>
+        {current?.isRenamed && (
+          <button
+            onClick={handleReset}
+            disabled={isSaving}
+            className="shrink-0 rounded-md p-2 text-ink-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+            title="Reset to default name"
+            aria-label={`Reset ${current.name} to its default name`}
+          >
+            <RotateCcw size={15} />
+          </button>
+        )}
       </div>
+
+      {saved && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-positive">
+          <Check size={15} />
+          Saved.
+        </div>
+      )}
     </SettingsSection>
   );
 }
