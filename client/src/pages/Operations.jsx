@@ -43,7 +43,7 @@ export default function Operations() {
 
       {!isError && (
         <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {isLoading && Array.from({ length: 10 }).map((_, i) => <KpiCardSkeleton key={i} />)}
 
             {data?.metrics.map((metric, index) => (

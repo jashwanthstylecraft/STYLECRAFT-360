@@ -19,6 +19,29 @@ import { xAxisInterval } from "../../utils/chartDensity";
 
 const SEGMENT_LABEL_FONT_SIZE = 8;
 
+// Recharts' default auto-ticks always include the raw domain ceiling as a
+// tick even when it isn't a "nice" round number — snapping the ceiling
+// itself to a round step keeps every tick, including the top one, evenly
+// spaced (see DualMetricGroupedChart's identical helper).
+const NICE_STEP_FRACTIONS = [1, 2, 2.5, 5, 10];
+
+function computeNiceTicks(dataMax, targetLine, tickCount = 5) {
+  const rawMax = targetLine !== undefined ? Math.max(dataMax, targetLine * 1.1) : dataMax;
+  if (!(rawMax > 0)) return null;
+
+  const rawStep = rawMax / tickCount;
+  const stepExponent = Math.floor(Math.log10(rawStep));
+  const stepBase = 10 ** stepExponent;
+  const stepFraction = rawStep / stepBase;
+  const niceFraction = NICE_STEP_FRACTIONS.find((f) => f >= stepFraction) ?? NICE_STEP_FRACTIONS[NICE_STEP_FRACTIONS.length - 1];
+  const step = niceFraction * stepBase;
+
+  const niceMax = Math.ceil(rawMax / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= niceMax + step * 0.001; v += step) ticks.push(Math.round(v * 1e8) / 1e8);
+  return { domain: [0, niceMax], ticks };
+}
+
 // Only draws the value when the rendered segment measures large enough to
 // hold it in both dimensions — an unmeasured label on a thin/narrow segment
 // gets clipped, which is worse than no label at all (see marks-and-anatomy).
@@ -86,6 +109,9 @@ export default function StackedBarChart({
     };
   });
 
+  const dataMax = data.reduce((max, d) => Math.max(max, d.combined ?? 0), 0);
+  const niceTicks = computeNiceTicks(dataMax, targetLine);
+
   return (
     <div>
       {showLegend && (
@@ -112,7 +138,8 @@ export default function StackedBarChart({
             interval={xAxisInterval(weeks.length, labelThinThreshold)}
           />
           <YAxis
-            domain={targetLine !== undefined ? [0, (dataMax) => Math.max(dataMax, targetLine * 1.1)] : undefined}
+            domain={niceTicks?.domain}
+            ticks={niceTicks?.ticks}
             tick={{ fontSize: 11, fill: COLORS.axisText }}
             tickFormatter={(v) => formatValue(v, valueFormat)}
             tickLine={false}
