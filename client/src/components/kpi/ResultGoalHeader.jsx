@@ -11,6 +11,7 @@ export default function ResultGoalHeader({
   format = "currency",
   attainmentPct,
   wowDeltaPct,
+  hideName = false,
 }) {
   // Negative currency (e.g. an inventory discrepancy) reads as risk even
   // before you parse the number — flag it in red rather than the usual blue.
@@ -18,9 +19,9 @@ export default function ResultGoalHeader({
 
   return (
     <div>
-      <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
+      {!hideName && <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>}
 
-      <div className="mt-3 flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15">
+      <div className={`${hideName ? "" : "mt-3"} flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15`}>
         <div className="min-w-0 flex-1 text-center">
           <div className="text-xs font-semibold uppercase tracking-wide text-actual-strong">Result</div>
           <div

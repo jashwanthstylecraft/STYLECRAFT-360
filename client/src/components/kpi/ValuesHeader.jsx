@@ -6,14 +6,14 @@ import TrendArrow from "./TrendArrow";
 // pair — e.g. In-Stock % (Order Fill vs SKU Avail), Shipping Time (B2B vs
 // B2C). No attainment pill: there's no single target to score against, so
 // each value just gets its own WoW arrow.
-export default function ValuesHeader({ name, values, goalDirection = "higher" }) {
+export default function ValuesHeader({ name, values, goalDirection = "higher", hideName = false }) {
   const resolveNamedColor = useResolveNamedColor();
 
   return (
     <div>
-      <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
+      {!hideName && <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>}
 
-      <div className="mt-3 flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15">
+      <div className={`${hideName ? "" : "mt-3"} flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15`}>
         {values.map((entry) => (
           <div key={entry.label} className="min-w-0 flex-1 text-center">
             <div

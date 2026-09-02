@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X, Download, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import MetricChart from "../components/kpi/MetricChart";
+import MetricSummaryHeader from "../components/kpi/MetricSummaryHeader";
 import StatsStrip from "../components/detail/StatsStrip";
 import YtdComparisonBar from "../components/detail/YtdComparisonBar";
 import DataTable, { buildCsvRows } from "../components/detail/DataTable";
@@ -44,19 +45,30 @@ function GoalDirectionBadge({ goalDirection }) {
 // real pixel number (exactly how every existing card already calls them)
 // sidesteps that entirely.
 function useMeasuredHeight() {
-  const ref = useRef(null);
   const [height, setHeight] = useState(0);
+  const observerRef = useRef(null);
 
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
+  // A callback ref, not a plain object ref + `useLayoutEffect([])` — this
+  // component swaps between two structurally different boxes (the inline
+  // hero and the fullscreen one), each with its own DOM node under the same
+  // ref. A one-time effect only ever measures whichever node existed at
+  // first mount and never re-attaches when that node is later swapped out,
+  // so toggling fullscreen would keep reporting the old (or a momentarily
+  // stale) height instead of the new box's real size. A callback ref fires
+  // on every attach/detach, so each swap gets its own fresh observer.
+  const ref = useCallback((el) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height;
       if (h) setHeight(Math.round(h));
     });
     observer.observe(el);
+    observerRef.current = observer;
     setHeight(Math.round(el.getBoundingClientRect().height));
-    return () => observer.disconnect();
   }, []);
 
   return [ref, height];
@@ -96,6 +108,11 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
           >
             <X size={18} />
           </button>
+        </div>
+        <div className="mb-4 flex shrink-0 justify-center">
+          <div className="w-full max-w-lg">
+            <MetricSummaryHeader metric={metric} hideName />
+          </div>
         </div>
         <div ref={boxRef} className="min-h-0 flex-1">
           {boxHeight > 0 && chartBlock}
@@ -220,6 +237,12 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
             </p>
           </div>
           <PrevNextArrows backPath={backPath} prev={prev} next={next} />
+        </div>
+
+        <div className="mb-6 flex justify-center">
+          <div className="w-full max-w-lg">
+            <MetricSummaryHeader metric={metric} hideName />
+          </div>
         </div>
 
         <div className="mb-6 space-y-5">
