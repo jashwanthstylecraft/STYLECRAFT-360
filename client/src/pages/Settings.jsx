@@ -22,6 +22,8 @@ import {
   fetchMetricNames,
   renameMetric,
   resetMetricName,
+  hideMetric,
+  unhideMetric,
 } from "../services/api";
 
 const DEPARTMENT_OPTIONS = [
@@ -464,7 +466,9 @@ function RenameGraphsSection() {
   const [saved, setSaved] = useState(false);
 
   const deptMetrics = metrics?.filter((m) => m.department === department) ?? [];
-  const current = deptMetrics.find((m) => m.slug === slug) ?? deptMetrics[0] ?? null;
+  const activeMetrics = deptMetrics.filter((m) => !m.isHidden);
+  const removedMetrics = deptMetrics.filter((m) => m.isHidden);
+  const current = deptMetrics.find((m) => m.slug === slug) ?? activeMetrics[0] ?? deptMetrics[0] ?? null;
 
   // Keep the selected slug valid as the department (or the metric list
   // itself, after a save) changes, and keep the draft field in sync with
@@ -514,12 +518,32 @@ function RenameGraphsSection() {
   }
 
   async function handleDelete() {
-    if (!current?.isCustom) return;
+    if (!current || current.isHidden) return;
     setError(null);
     setIsSaving(true);
     try {
-      await removeCustomMetric(current.slug);
+      // A custom metric is admin-owned data with no real history to
+      // protect, so it's deleted outright. A built-in metric can carry
+      // years of real business history — "deleting" it only hides it
+      // (reversible below), never touches its stored values/goals.
+      if (current.isCustom) await removeCustomMetric(current.slug);
+      else await hideMetric(current.slug);
       setSlug("");
+      invalidateAllDataQueries(queryClient);
+      setSaved(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!current?.isHidden) return;
+    setError(null);
+    setIsSaving(true);
+    try {
+      await unhideMetric(current.slug);
       invalidateAllDataQueries(queryClient);
       setSaved(false);
     } catch (err) {
@@ -565,59 +589,85 @@ function RenameGraphsSection() {
             className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
           >
             {deptMetrics.length === 0 && <option>No graphs in this department</option>}
-            {deptMetrics.map((m) => (
+            {activeMetrics.map((m) => (
               <option key={m.slug} value={m.slug}>
                 {m.name}
               </option>
             ))}
+            {removedMetrics.length > 0 && (
+              <optgroup label="Removed">
+                {removedMetrics.map((m) => (
+                  <option key={m.slug} value={m.slug}>
+                    {m.name} (removed)
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
-        <div className="min-w-[200px] flex-1">
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">New title</label>
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setSaved(false);
-            }}
-            disabled={!current}
-            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-          />
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={!isDirty || isSaving}
-          className="shrink-0 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isSaving ? "Saving…" : "Save"}
-        </button>
-        {current?.isRenamed && (
+        {!current?.isHidden && (
+          <div className="min-w-[200px] flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">New title</label>
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSaved(false);
+              }}
+              disabled={!current}
+              className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            />
+          </div>
+        )}
+        {current?.isHidden ? (
           <button
-            onClick={handleReset}
+            onClick={handleRestore}
             disabled={isSaving}
-            className="shrink-0 rounded-md p-2 text-ink-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-            title="Reset to default name"
-            aria-label={`Reset ${current.name} to its default name`}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
           >
             <RotateCcw size={15} />
+            {isSaving ? "Restoring…" : "Restore"}
           </button>
-        )}
-        {current?.isCustom && (
-          <button
-            onClick={handleDelete}
-            disabled={isSaving}
-            className="shrink-0 rounded-md p-2 text-negative hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-            title="Delete this graph"
-            aria-label={`Delete ${current.name}`}
-          >
-            <Trash2 size={15} />
-          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || isSaving}
+              className="shrink-0 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isSaving ? "Saving…" : "Save"}
+            </button>
+            {current?.isRenamed && (
+              <button
+                onClick={handleReset}
+                disabled={isSaving}
+                className="shrink-0 rounded-md p-2 text-ink-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                title="Reset to default name"
+                aria-label={`Reset ${current.name} to its default name`}
+              >
+                <RotateCcw size={15} />
+              </button>
+            )}
+            {current && (
+              <button
+                onClick={handleDelete}
+                disabled={isSaving}
+                className="shrink-0 rounded-md p-2 text-negative hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                title="Delete this graph"
+                aria-label={`Delete ${current.name}`}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
-      {current && !current.isCustom && (
-        <div className="mt-3 text-xs text-ink-muted">Built-in graphs can be renamed but not deleted.</div>
+      {current?.isHidden && (
+        <div className="mt-3 text-xs text-ink-muted">
+          This graph is removed from every dashboard. Its history wasn't touched — restoring brings it right back.
+        </div>
       )}
 
       {saved && (

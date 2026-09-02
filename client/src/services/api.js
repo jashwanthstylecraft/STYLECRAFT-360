@@ -190,3 +190,11 @@ export function renameMetric(slug, name) {
 export function resetMetricName(slug) {
   return request(`/metric-names/${encodeURIComponent(slug)}`, { method: "DELETE" });
 }
+
+export function hideMetric(slug) {
+  return request(`/hidden-metrics/${encodeURIComponent(slug)}`, { method: "POST" });
+}
+
+export function unhideMetric(slug) {
+  return request(`/hidden-metrics/${encodeURIComponent(slug)}`, { method: "DELETE" });
+}

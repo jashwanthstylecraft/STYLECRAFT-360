@@ -7,6 +7,7 @@
 const path = require("path");
 const customMetrics = require("./customMetrics");
 const metricNameOverrides = require("./metricNameOverrides");
+const hiddenMetrics = require("./hiddenMetrics");
 
 let registry = null;
 let weeks = null;
@@ -31,25 +32,52 @@ function assertReady(mod, name) {
   return mod;
 }
 
+// Registry + custom metrics, name-overridden, WITHOUT the hidden-metric
+// filter — the raw material every getter below (and the admin "including
+// hidden" accessors) is built from.
+function rawMetrics() {
+  return metricNameOverrides.applyOverrides([...assertReady(registry, "METRICS").METRICS, ...customMetrics.getCustomMetrics()]);
+}
+
+function rawDepartmentMetrics(department) {
+  return metricNameOverrides.applyOverrides([
+    ...assertReady(registry, "getDepartmentMetrics").getDepartmentMetrics(department),
+    ...customMetrics.getCustomMetricsForDepartment(department),
+  ]);
+}
+
 module.exports = {
   ready,
   // Admin-added metrics (Settings → Add Graph, see data/customMetrics.js)
   // are merged in here — the one seam every consumer (Data Entry, export,
   // detail pages, department services) goes through, so nothing downstream
   // needs to know a metric came from a database row instead of the static
-  // shared/metricRegistry.mjs file.
+  // shared/metricRegistry.mjs file. Admin-hidden metrics (Settings → Rename
+  // graphs → Delete, on a built-in metric) are filtered out at this same
+  // seam — see data/hiddenMetrics.js and the *IncludingHidden accessors
+  // below, used only by the admin Settings UI itself.
   get METRICS() {
-    return metricNameOverrides.applyOverrides([...assertReady(registry, "METRICS").METRICS, ...customMetrics.getCustomMetrics()]);
+    return rawMetrics().filter((m) => !hiddenMetrics.isHidden(m.slug));
   },
   getMetric(slug) {
-    const metric = assertReady(registry, "getMetric").getMetric(slug) ?? customMetrics.getCustomMetrics().find((m) => m.slug === slug) ?? null;
-    return metric ? metricNameOverrides.applyOverride(metric) : null;
+    if (hiddenMetrics.isHidden(slug)) return null;
+    return rawMetrics().find((m) => m.slug === slug) ?? null;
   },
   getDepartmentMetrics(department) {
-    return metricNameOverrides.applyOverrides([
-      ...assertReady(registry, "getDepartmentMetrics").getDepartmentMetrics(department),
-      ...customMetrics.getCustomMetricsForDepartment(department),
-    ]);
+    return rawDepartmentMetrics(department).filter((m) => !hiddenMetrics.isHidden(m.slug));
+  },
+  // Bypasses the hidden filter — for the Settings "Rename graphs" picker
+  // (which needs to list removed built-in graphs so they can be restored)
+  // and for validating a hide/unhide/rename request against a metric that
+  // may currently be hidden.
+  getAllDepartmentMetricsIncludingHidden(department) {
+    return rawDepartmentMetrics(department).map((m) => ({ ...m, isHidden: hiddenMetrics.isHidden(m.slug) }));
+  },
+  getMetricIncludingHidden(slug) {
+    return rawMetrics().find((m) => m.slug === slug) ?? null;
+  },
+  isMetricHidden(slug) {
+    return hiddenMetrics.isHidden(slug);
   },
   seriesKeysFor(metric) {
     return assertReady(registry, "seriesKeysFor").seriesKeysFor(metric);

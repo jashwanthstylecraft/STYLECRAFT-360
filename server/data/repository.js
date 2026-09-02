@@ -188,7 +188,13 @@ function smartLabels(weeks) {
 
 function toPositionalDepartment(sparseSource, weeks) {
   const weekEndings = weeks.map((w) => w.weekEnding);
-  const METRICS = sparseSource.METRICS.map((m) => mergeWithRegistry(toPositional(m, weekEndings)));
+  // A hidden metric must be dropped here, not left for mergeWithRegistry to
+  // handle — sharedRegistry.getMetric returns null for a hidden slug just
+  // like it does for a genuinely unknown one, and mergeWithRegistry's
+  // fallback for that case is to pass the raw sparse numbers through
+  // unmerged (no chartType/format/name) rather than to hide the card, which
+  // would corrupt the render instead of removing it.
+  const METRICS = sparseSource.METRICS.filter((m) => !sharedRegistry.isMetricHidden(m.slug)).map((m) => mergeWithRegistry(toPositional(m, weekEndings)));
   return {
     WEEKS: smartLabels(weeks),
     WEEK_ENDINGS: weekEndings,

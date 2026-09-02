@@ -6,17 +6,20 @@ const router = express.Router();
 
 const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
-// Every renameable graph across every department, in display order — the
-// Settings "Rename graphs" list. Names already reflect any override, since
-// getDepartmentMetrics applies it (see sharedRegistry.js).
+// Every graph across every department, in display order — the Settings
+// "Rename graphs" list, INCLUDING hidden ones (so a removed built-in graph
+// can still be found and restored from the same picker). Names already
+// reflect any override, since getAllDepartmentMetricsIncludingHidden
+// applies it (see sharedRegistry.js).
 router.get("/", (req, res) => {
   const metrics = DEPARTMENT_KEYS.flatMap((department) =>
-    sharedRegistry.getDepartmentMetrics(department).map((m) => ({
+    sharedRegistry.getAllDepartmentMetricsIncludingHidden(department).map((m) => ({
       slug: m.slug,
       name: m.name,
       department,
       isCustom: Boolean(m.isCustom),
       isRenamed: metricNameOverrides.hasOverride(m.slug),
+      isHidden: m.isHidden,
     }))
   );
   res.json({ metrics });
@@ -26,7 +29,7 @@ router.put("/:slug", async (req, res) => {
   const { slug } = req.params;
   const { name } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: "A title is required." });
-  if (!sharedRegistry.getMetric(slug)) return res.status(404).json({ error: `No metric "${slug}" found.` });
+  if (!sharedRegistry.getMetricIncludingHidden(slug)) return res.status(404).json({ error: `No metric "${slug}" found.` });
 
   try {
     await metricNameOverrides.setMetricNameOverride(slug, String(name).trim());

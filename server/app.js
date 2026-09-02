@@ -28,6 +28,8 @@ const customMetrics = require("./data/customMetrics");
 const customMetricsRouter = require("./routes/customMetrics");
 const metricNameOverrides = require("./data/metricNameOverrides");
 const metricNamesRouter = require("./routes/metricNames");
+const hiddenMetrics = require("./data/hiddenMetrics");
+const hiddenMetricsRouter = require("./routes/hiddenMetrics");
 
 const app = express();
 
@@ -53,6 +55,7 @@ app.use(async (req, res, next) => {
     await repository.ensureFreshSnapshot();
     await customMetrics.ensureFreshCustomMetrics();
     await metricNameOverrides.ensureFreshMetricNameOverrides();
+    await hiddenMetrics.ensureFreshHiddenMetrics();
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -81,5 +84,6 @@ app.use("/api/export", requireRole("admin"), exportRouter);
 app.use("/api/users", requireRole("admin"), usersRouter);
 app.use("/api/custom-metrics", requireRole("admin"), customMetricsRouter);
 app.use("/api/metric-names", requireRole("admin"), metricNamesRouter);
+app.use("/api/hidden-metrics", requireRole("admin"), hiddenMetricsRouter);
 
 module.exports = app;

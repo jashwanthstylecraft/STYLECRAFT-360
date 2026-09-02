@@ -56,3 +56,16 @@ create table if not exists metric_name_overrides (
   name text not null,
   updated_at timestamptz not null default now()
 );
+
+-- Admin-removed graphs (Settings → Rename graphs → Delete). A custom metric
+-- (one from custom_metrics above) is deleted outright, since it's admin-
+-- owned data with no real history to protect. A built-in metric can carry
+-- years of real business history in its snapshots, so "removing" it here
+-- only hides it — a row's presence excludes the slug from every consumer
+-- (dashboards, Data Entry, export, detail pages) at the same seam in
+-- server/data/sharedRegistry.js, but its underlying values/goals are never
+-- touched. Deleting the row restores it, history intact.
+create table if not exists hidden_metrics (
+  slug text primary key,
+  hidden_at timestamptz not null default now()
+);
