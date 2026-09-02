@@ -174,3 +174,19 @@ export function addCustomMetric({ name, department }) {
 export function removeCustomMetric(slug) {
   return request(`/custom-metrics/${encodeURIComponent(slug)}`, { method: "DELETE" });
 }
+
+export function fetchMetricNames() {
+  return request("/metric-names");
+}
+
+export function renameMetric(slug, name) {
+  return request(`/metric-names/${encodeURIComponent(slug)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function resetMetricName(slug) {
+  return request(`/metric-names/${encodeURIComponent(slug)}`, { method: "DELETE" });
+}

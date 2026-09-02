@@ -20,6 +20,7 @@ export const DATA_DEPENDENT_QUERY_KEYS = [
   "entry-data",
   "entry-coverage",
   "custom-metrics",
+  "metric-names",
 ];
 
 export function invalidateAllDataQueries(queryClient) {

@@ -26,6 +26,8 @@ const { requireAuth, requireRole } = require("./middleware/auth");
 const repository = require("./data/repository");
 const customMetrics = require("./data/customMetrics");
 const customMetricsRouter = require("./routes/customMetrics");
+const metricNameOverrides = require("./data/metricNameOverrides");
+const metricNamesRouter = require("./routes/metricNames");
 
 const app = express();
 
@@ -50,6 +52,7 @@ app.use(async (req, res, next) => {
   try {
     await repository.ensureFreshSnapshot();
     await customMetrics.ensureFreshCustomMetrics();
+    await metricNameOverrides.ensureFreshMetricNameOverrides();
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -77,5 +80,6 @@ app.use("/api/data", dataRouter);
 app.use("/api/export", requireRole("admin"), exportRouter);
 app.use("/api/users", requireRole("admin"), usersRouter);
 app.use("/api/custom-metrics", requireRole("admin"), customMetricsRouter);
+app.use("/api/metric-names", requireRole("admin"), metricNamesRouter);
 
 module.exports = app;

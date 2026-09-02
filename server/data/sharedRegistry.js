@@ -6,6 +6,7 @@
 // (before it calls app.listen — see there).
 const path = require("path");
 const customMetrics = require("./customMetrics");
+const metricNameOverrides = require("./metricNameOverrides");
 
 let registry = null;
 let weeks = null;
@@ -38,16 +39,17 @@ module.exports = {
   // needs to know a metric came from a database row instead of the static
   // shared/metricRegistry.mjs file.
   get METRICS() {
-    return [...assertReady(registry, "METRICS").METRICS, ...customMetrics.getCustomMetrics()];
+    return metricNameOverrides.applyOverrides([...assertReady(registry, "METRICS").METRICS, ...customMetrics.getCustomMetrics()]);
   },
   getMetric(slug) {
-    return assertReady(registry, "getMetric").getMetric(slug) ?? customMetrics.getCustomMetrics().find((m) => m.slug === slug) ?? null;
+    const metric = assertReady(registry, "getMetric").getMetric(slug) ?? customMetrics.getCustomMetrics().find((m) => m.slug === slug) ?? null;
+    return metric ? metricNameOverrides.applyOverride(metric) : null;
   },
   getDepartmentMetrics(department) {
-    return [
+    return metricNameOverrides.applyOverrides([
       ...assertReady(registry, "getDepartmentMetrics").getDepartmentMetrics(department),
       ...customMetrics.getCustomMetricsForDepartment(department),
-    ];
+    ]);
   },
   seriesKeysFor(metric) {
     return assertReady(registry, "seriesKeysFor").seriesKeysFor(metric);

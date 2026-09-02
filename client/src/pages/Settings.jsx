@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle } from "lucide-react";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,6 +19,9 @@ import {
   fetchCustomMetrics,
   addCustomMetric,
   removeCustomMetric,
+  fetchMetricNames,
+  renameMetric,
+  resetMetricName,
 } from "../services/api";
 
 const DEPARTMENT_OPTIONS = [
@@ -449,6 +452,128 @@ function TeamSection() {
   );
 }
 
+function RenameGraphsSection() {
+  const queryClient = useQueryClient();
+  const [metrics, setMetrics] = useState(null);
+  const [error, setError] = useState(null);
+  const [drafts, setDrafts] = useState({});
+  const [savingSlug, setSavingSlug] = useState(null);
+  const [savedSlug, setSavedSlug] = useState(null);
+
+  const refresh = useCallback(() => {
+    fetchMetricNames()
+      .then((data) => {
+        setMetrics(data.metrics);
+        setDrafts(Object.fromEntries(data.metrics.map((m) => [m.slug, m.name])));
+      })
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleSave(slug) {
+    const name = drafts[slug]?.trim();
+    if (!name) return;
+    setError(null);
+    setSavedSlug(null);
+    setSavingSlug(slug);
+    try {
+      await renameMetric(slug, name);
+      refresh();
+      invalidateAllDataQueries(queryClient);
+      setSavedSlug(slug);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingSlug(null);
+    }
+  }
+
+  async function handleReset(slug) {
+    setError(null);
+    setSavedSlug(null);
+    setSavingSlug(slug);
+    try {
+      await resetMetricName(slug);
+      refresh();
+      invalidateAllDataQueries(queryClient);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingSlug(null);
+    }
+  }
+
+  const grouped = DEPARTMENT_OPTIONS.map((d) => ({
+    ...d,
+    metrics: metrics?.filter((m) => m.department === d.value) ?? [],
+  })).filter((d) => d.metrics.length > 0);
+
+  return (
+    <SettingsSection
+      title="Rename graphs"
+      description="Change the title shown on any graph's card, chart, and detail page — everywhere it appears."
+    >
+      {metrics === null && <div className="text-sm text-ink-muted">Loading…</div>}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {grouped.map((d) => (
+          <div key={d.value}>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{d.label}</div>
+            <div className="space-y-2">
+              {d.metrics.map((m) => {
+                const draft = drafts[m.slug] ?? "";
+                const isDirty = Boolean(draft.trim()) && draft.trim() !== m.name;
+                return (
+                  <div key={m.slug} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={(e) => {
+                        setDrafts((prev) => ({ ...prev, [m.slug]: e.target.value }));
+                        setSavedSlug(null);
+                      }}
+                      className="min-w-0 flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+                    />
+                    <button
+                      onClick={() => handleSave(m.slug)}
+                      disabled={!isDirty || savingSlug === m.slug}
+                      className="shrink-0 rounded-lg bg-actual px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {savingSlug === m.slug ? "Saving…" : "Save"}
+                    </button>
+                    {m.isRenamed && (
+                      <button
+                        onClick={() => handleReset(m.slug)}
+                        disabled={savingSlug === m.slug}
+                        className="shrink-0 rounded-md p-1.5 text-ink-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Reset to default name"
+                        aria-label={`Reset ${m.name} to its default name`}
+                      >
+                        <RotateCcw size={15} />
+                      </button>
+                    )}
+                    {savedSlug === m.slug && <Check size={16} className="shrink-0 text-positive" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SettingsSection>
+  );
+}
+
 function AddGraphSection() {
   const queryClient = useQueryClient();
   const [metrics, setMetrics] = useState(null);
@@ -584,6 +709,7 @@ export default function Settings() {
         <MotionSection />
         <DataVisibilitySection />
         {isAdmin && <CounterSection />}
+        {isAdmin && <RenameGraphsSection />}
         {isAdmin && <AddGraphSection />}
         {isAdmin && <TeamSection />}
       </div>

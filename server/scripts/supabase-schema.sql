@@ -44,3 +44,15 @@ create table if not exists custom_metrics (
   department text not null check (department in ('sales', 'inventory', 'finance', 'operations', 'marketing', 'customer-service')),
   created_at timestamptz not null default now()
 );
+
+-- Admin-set display-name overrides (Settings → Rename graphs). Applies to
+-- ANY metric slug — a built-in shared/metricRegistry.mjs entry or a custom
+-- one above — at the same merge seam in server/data/sharedRegistry.js, so a
+-- rename shows up everywhere with no special-casing for where the metric
+-- came from. The metric's original name/definition is never edited; a row
+-- here just overrides what's displayed. Deleting the row reverts to default.
+create table if not exists metric_name_overrides (
+  slug text primary key,
+  name text not null,
+  updated_at timestamptz not null default now()
+);
