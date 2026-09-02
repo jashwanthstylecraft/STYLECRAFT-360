@@ -13,9 +13,9 @@ export default function ValuesHeader({ name, values, goalDirection = "higher" })
     <div>
       <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
 
-      <div className="mt-3 flex w-full items-baseline justify-center gap-8 border border-black/40 p-3 dark:border-white/15">
+      <div className="mt-3 flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15">
         {values.map((entry) => (
-          <div key={entry.label} className="flex-1 text-center">
+          <div key={entry.label} className="min-w-0 flex-1 text-center">
             <div
               className="text-xs font-semibold uppercase tracking-wide"
               style={{ color: resolveNamedColor(entry.color) }}
@@ -23,7 +23,7 @@ export default function ValuesHeader({ name, values, goalDirection = "higher" })
               {entry.label}
             </div>
             <div
-              className="text-[32px] font-bold tabular-nums leading-tight"
+              className="truncate text-[32px] font-bold tabular-nums leading-tight"
               style={{ color: resolveNamedColor(entry.color) }}
             >
               {formatValue(entry.value, entry.format)}

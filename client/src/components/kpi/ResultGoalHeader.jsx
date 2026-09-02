@@ -20,20 +20,20 @@ export default function ResultGoalHeader({
     <div>
       <h3 className="text-center text-base font-bold uppercase tracking-wide text-ink">{name}</h3>
 
-      <div className="mt-3 flex w-full items-baseline justify-center gap-8 border border-black/40 p-3 dark:border-white/15">
-        <div className="flex-1 text-center">
+      <div className="mt-3 flex w-full items-baseline justify-center gap-3 border border-black/40 p-3 dark:border-white/15">
+        <div className="min-w-0 flex-1 text-center">
           <div className="text-xs font-semibold uppercase tracking-wide text-actual-strong">Result</div>
           <div
-            className={`text-[32px] font-bold tabular-nums leading-tight ${
+            className={`truncate text-[32px] font-bold tabular-nums leading-tight ${
               resultIsNegative ? "text-negative" : "text-actual-strong"
             }`}
           >
             {formatValue(result, format, { roundThousands: true })}
           </div>
         </div>
-        <div className="flex-1 text-center">
+        <div className="min-w-0 flex-1 text-center">
           <div className="text-xs font-semibold uppercase tracking-wide text-goal">{goalLabel}</div>
-          <div className="text-[32px] font-bold tabular-nums leading-tight text-goal">
+          <div className="truncate text-[32px] font-bold tabular-nums leading-tight text-goal">
             {formatValue(goal, format, { roundThousands: true })}
           </div>
         </div>
