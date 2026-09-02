@@ -1,5 +1,5 @@
 const repository = require("../data/repository");
-const { buildMetric } = require("./metricsHelpers");
+const { buildMetric, withLatestWeekSummary } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
 // Marketing has no metrics of its own right now (both moved to Operations —
@@ -18,7 +18,7 @@ function getMarketingMetrics(period, range) {
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: METRICS.map(buildMetric),
+    metrics: withLatestWeekSummary("marketing", METRICS.map(buildMetric), buildMetric),
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };

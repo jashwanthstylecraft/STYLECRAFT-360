@@ -1,5 +1,5 @@
 const repository = require("../data/repository");
-const { wowDeltaPct, wowPointDelta, buildMetric } = require("./metricsHelpers");
+const { wowDeltaPct, wowPointDelta, buildMetric, withLatestWeekSummary } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
 function buildSummary(WEEKS, METRICS) {
@@ -44,7 +44,7 @@ function getFinanceMetrics(period, range) {
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: METRICS.map(buildMetric),
+    metrics: withLatestWeekSummary("finance", METRICS.map(buildMetric), buildMetric),
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };

@@ -1,5 +1,6 @@
 const repository = require("../data/repository");
 const { applyPeriodToDepartment } = require("./aggregate");
+const { withLatestWeekSummary } = require("./metricsHelpers");
 
 // result/goal in the API always reflect the latest week, derived here so the
 // frontend never recomputes business logic — it only renders what it's given.
@@ -135,7 +136,7 @@ function getSalesMetrics(period, range) {
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: METRICS.map(buildMetric),
+    metrics: withLatestWeekSummary("sales", METRICS.map(buildMetric), buildMetric),
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };

@@ -2,6 +2,7 @@
 // salesService.js intentionally keeps its own copies of these — Phase 1
 // behavior must stay byte-for-byte unchanged, so it isn't refactored onto
 // this shared module.
+const repository = require("../data/repository");
 
 function attainmentPct(result, goal) {
   if (result === null || result === undefined) return null;
@@ -119,6 +120,45 @@ function buildMetric(metric) {
   };
 }
 
+const LATEST_WEEK_SUMMARY_KEYS = [
+  "result",
+  "goal",
+  "attainmentPct",
+  "wowDeltaPct",
+  "headerValues",
+  "preorderTotal",
+  "backorderTotal",
+  "preorderWowDeltaPct",
+  "backorderWowDeltaPct",
+];
+
+// The Result/Goal box (and its attainment/WoW pills) a card or the detail
+// page shows must always reflect the single latest real week, independent
+// of whatever period/range a caller requested for the CHART itself —
+// buildMetric's `result`/`goal` come from `series[series.length - 1]`,
+// which is the requested period/range's own last point: a "Quarterly" view
+// turns that into a quarter's sum, and an "All time" range can run past the
+// last real data into weeks with no result (null) or pick up a goal
+// pre-filled months ahead of anything reported. Recomputing against the
+// department's own default (always latest-week-anchored) window and
+// overlaying just the summary fields — never the chart's own
+// series/goalSeries — fixes both without the chart losing the range/period
+// the reader actually asked to see.
+function withLatestWeekSummary(departmentKey, metrics, buildMetricFn) {
+  const latestRaw = repository.getDepartmentData(departmentKey);
+  const latestBySlug = new Map(latestRaw.METRICS.map((m) => [m.slug, buildMetricFn(m)]));
+
+  return metrics.map((metric) => {
+    const latest = latestBySlug.get(metric.slug);
+    if (!latest) return metric;
+    const overrides = {};
+    for (const key of LATEST_WEEK_SUMMARY_KEYS) {
+      if (key in latest) overrides[key] = latest[key];
+    }
+    return { ...metric, ...overrides };
+  });
+}
+
 module.exports = {
   attainmentPct,
   wowDeltaPct,
@@ -129,4 +169,5 @@ module.exports = {
   sumOrNull,
   avgOrNull,
   buildMetric,
+  withLatestWeekSummary,
 };
