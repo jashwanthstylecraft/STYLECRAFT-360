@@ -12,6 +12,13 @@ router.get("/", (req, res) => {
   res.json({ metrics: customMetrics.getCustomMetrics() });
 });
 
+// A brand-new metric needs a stub {slug, values: {}} entry in its
+// department's snapshot data immediately, not just a registry row — the
+// department page reads from stored sparse data (toPositionalDepartment
+// iterates sparseSource.METRICS, not the registry), so without this the new
+// card simply wouldn't appear until the first Data Entry save happened to
+// touch it. Mirrors exactly what every seed file already does for built-in
+// metrics.
 router.post("/", async (req, res) => {
   const { name, department } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: "A metric title is required." });
@@ -20,6 +27,19 @@ router.post("/", async (req, res) => {
   try {
     const isSlugTaken = (slug) => Boolean(sharedRegistry.getMetric(slug));
     const metric = await customMetrics.addCustomMetric({ name: String(name).trim(), department }, isSlugTaken);
+
+    const departments = {};
+    for (const key of DEPARTMENT_KEYS) {
+      const sparse = repository.getSparseDepartmentData(key);
+      departments[key] = { METRICS: sparse.METRICS.map((m) => ({ ...m })) };
+    }
+    departments[department].METRICS.push({ slug: metric.slug, values: {} });
+    await snapshotService.commitSnapshot(departments, {
+      filename: `Add custom metric ${metric.slug}`,
+      note: `Added custom metric "${metric.name}" to ${department}`,
+      source: "Manual entry",
+    });
+
     res.json({ ok: true, metric });
   } catch (err) {
     res.status(500).json({ error: err.message });
