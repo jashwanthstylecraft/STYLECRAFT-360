@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
@@ -454,23 +454,14 @@ function TeamSection() {
 
 function RenameGraphsSection() {
   const queryClient = useQueryClient();
-  const [metrics, setMetrics] = useState(null);
+  const { data, error: fetchError } = useQuery({ queryKey: ["metric-names"], queryFn: fetchMetricNames });
+  const metrics = data?.metrics ?? null;
   const [error, setError] = useState(null);
   const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[0].value);
   const [slug, setSlug] = useState("");
   const [draft, setDraft] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  const refresh = useCallback(() => {
-    fetchMetricNames()
-      .then((data) => setMetrics(data.metrics))
-      .catch((err) => setError(err.message));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const deptMetrics = metrics?.filter((m) => m.department === department) ?? [];
   const current = deptMetrics.find((m) => m.slug === slug) ?? deptMetrics[0] ?? null;
@@ -498,7 +489,6 @@ function RenameGraphsSection() {
     setIsSaving(true);
     try {
       await renameMetric(current.slug, draft.trim());
-      refresh();
       invalidateAllDataQueries(queryClient);
       setSaved(true);
     } catch (err) {
@@ -514,7 +504,22 @@ function RenameGraphsSection() {
     setIsSaving(true);
     try {
       await resetMetricName(current.slug);
-      refresh();
+      invalidateAllDataQueries(queryClient);
+      setSaved(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!current?.isCustom) return;
+    setError(null);
+    setIsSaving(true);
+    try {
+      await removeCustomMetric(current.slug);
+      setSlug("");
       invalidateAllDataQueries(queryClient);
       setSaved(false);
     } catch (err) {
@@ -529,10 +534,10 @@ function RenameGraphsSection() {
       title="Rename a graph"
       description="Change the title shown on any graph's card, chart, and detail page — everywhere it appears."
     >
-      {error && (
+      {(error || fetchError) && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
           <AlertTriangle size={16} />
-          {error}
+          {error || fetchError.message}
         </div>
       )}
 
@@ -598,7 +603,22 @@ function RenameGraphsSection() {
             <RotateCcw size={15} />
           </button>
         )}
+        {current?.isCustom && (
+          <button
+            onClick={handleDelete}
+            disabled={isSaving}
+            className="shrink-0 rounded-md p-2 text-negative hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+            title="Delete this graph"
+            aria-label={`Delete ${current.name}`}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
+
+      {current && !current.isCustom && (
+        <div className="mt-3 text-xs text-ink-muted">Built-in graphs can be renamed but not deleted.</div>
+      )}
 
       {saved && (
         <div className="mt-3 flex items-center gap-2 text-sm text-positive">
@@ -612,21 +632,12 @@ function RenameGraphsSection() {
 
 function AddGraphSection() {
   const queryClient = useQueryClient();
-  const [metrics, setMetrics] = useState(null);
+  const { data, error: fetchError } = useQuery({ queryKey: ["custom-metrics"], queryFn: fetchCustomMetrics });
+  const metrics = data?.metrics ?? null;
   const [error, setError] = useState(null);
   const [name, setName] = useState("");
   const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[0].value);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const refresh = useCallback(() => {
-    fetchCustomMetrics()
-      .then((data) => setMetrics(data.metrics))
-      .catch((err) => setError(err.message));
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -635,7 +646,6 @@ function AddGraphSection() {
     try {
       await addCustomMetric({ name, department });
       setName("");
-      refresh();
       invalidateAllDataQueries(queryClient);
     } catch (err) {
       setError(err.message);
@@ -648,7 +658,6 @@ function AddGraphSection() {
     setError(null);
     try {
       await removeCustomMetric(slug);
-      refresh();
       invalidateAllDataQueries(queryClient);
     } catch (err) {
       setError(err.message);
@@ -683,10 +692,10 @@ function AddGraphSection() {
         ))}
       </div>
 
-      {error && (
+      {(error || fetchError) && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
           <AlertTriangle size={16} />
-          {error}
+          {error || fetchError.message}
         </div>
       )}
 
