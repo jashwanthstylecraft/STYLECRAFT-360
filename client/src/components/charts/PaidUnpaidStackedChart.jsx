@@ -121,8 +121,6 @@ export default function PaidUnpaidStackedChart({
             dataKey={paidKey}
             stackId="po"
             fill={COLORS.actual}
-            stroke={COLORS.surfaceCard}
-            strokeWidth={2}
             isAnimationActive={isAnimationActive}
             animationDuration={animationDuration}
             animationEasing={animationEasing}
