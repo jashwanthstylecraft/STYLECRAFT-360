@@ -127,7 +127,7 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
   }
 
   return (
-    <div className="relative rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-6">
+    <div className="relative flex h-full min-h-[280px] flex-col rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-6">
       <button
         onClick={() => setFullscreen(true)}
         className="absolute right-4 top-4 z-10 rounded-lg border border-surface-border bg-surface-card p-2 text-ink-secondary shadow-sm hover:bg-surface-hover"
@@ -136,7 +136,7 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
       >
         <Maximize2 size={16} />
       </button>
-      <div ref={boxRef} style={{ height: "60vh", minHeight: 320 }}>
+      <div ref={boxRef} className="min-h-0 flex-1">
         {boxHeight > 0 && chartBlock}
       </div>
     </div>
@@ -216,12 +216,19 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
 
   return (
     <PageShell lastUpdated={null}>
+      {/* Heading, Result/Goal highlight, chart, and Year to Date are sized
+          to fit the visible viewport together (no scrolling to see any of
+          them) — this box takes exactly the space PageShell's <main> gives
+          it, and the chart (flex-1 min-h-0) fills whatever's left after the
+          other three. Stats/week-by-week below are lower-priority detail,
+          left in normal scrollable flow past this block. */}
       <motion.div
+        className="flex h-full min-h-0 flex-col"
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.28, ease: EASE }}
       >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <div>
             <Link to={backPath} className="inline-flex items-center gap-1.5 text-sm font-medium text-actual hover:underline">
               <ArrowLeft size={16} />
@@ -239,17 +246,24 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
           <PrevNextArrows backPath={backPath} prev={prev} next={next} />
         </div>
 
-        <div className="mb-6 flex justify-center">
+        <div className="mb-3 flex shrink-0 justify-center">
           <div className="w-full max-w-lg">
             <MetricSummaryHeader metric={metric} hideName />
           </div>
         </div>
 
-        <div className="mb-6 space-y-5">
+        <div className="min-h-0 flex-1">
           <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} ytdBlocks={ytd?.blocks} />
-          {hasYtd && <YtdComparisonBar blocks={ytd?.blocks} />}
         </div>
 
+        {hasYtd && (
+          <div className="mt-3 shrink-0">
+            <YtdComparisonBar blocks={ytd?.blocks} />
+          </div>
+        )}
+      </motion.div>
+
+      <div className="mt-6">
         <motion.div className="mb-6" {...cardMotionProps(motionVariant, 0, reduceMotion)}>
           <StatsStrip stats={stats} goalDirection={metric.goalDirection} />
         </motion.div>
@@ -275,7 +289,7 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
           </div>
           <DataTable metric={metric} rows={table} format={format} />
         </motion.div>
-      </motion.div>
+      </div>
     </PageShell>
   );
 }
