@@ -236,13 +236,10 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
               {metric.description} · <span className="font-medium text-ink">{dateRangeLabel}</span>
             </p>
           </div>
-          <PrevNextArrows backPath={backPath} prev={prev} next={next} />
-        </div>
-
-        <div className="mb-6 flex justify-center">
-          <div className="w-full max-w-lg">
+          <div className="w-full max-w-lg sm:w-auto sm:min-w-[300px] sm:flex-1">
             <MetricSummaryHeader metric={metric} hideName />
           </div>
+          <PrevNextArrows backPath={backPath} prev={prev} next={next} />
         </div>
 
         <div className="mb-6 space-y-5">
