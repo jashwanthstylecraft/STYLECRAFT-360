@@ -130,6 +130,7 @@ const LATEST_WEEK_SUMMARY_KEYS = [
   "backorderTotal",
   "preorderWowDeltaPct",
   "backorderWowDeltaPct",
+  "note",
 ];
 
 // The Result/Goal box (and its attainment/WoW pills) a card or the detail

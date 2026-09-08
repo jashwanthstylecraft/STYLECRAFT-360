@@ -245,6 +245,12 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
         <div className="mb-6 space-y-5">
           <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} ytdBlocks={ytd?.blocks} />
           {hasYtd && <YtdComparisonBar blocks={ytd?.blocks} />}
+          {metric.note && (
+            <div className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-5">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-secondary">Note</h3>
+              <p className="whitespace-pre-wrap text-sm text-ink">{metric.note}</p>
+            </div>
+          )}
         </div>
 
         <motion.div className="mb-6" {...cardMotionProps(motionVariant, 0, reduceMotion)}>

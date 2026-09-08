@@ -31,4 +31,14 @@ function validateCellValue(rawValue, metric) {
   return { value: num, error: null };
 }
 
-module.exports = { validateCellValue };
+// Free-text commentary — no format rules, just trims and treats a blank
+// string the same as "cleared" (matches validateCellValue's null-means-
+// intentionally-blank convention, so saveWeek's delete-vs-set logic works
+// unchanged for notes too).
+function validateNoteValue(rawValue) {
+  if (rawValue === null || rawValue === undefined) return { value: null, error: null };
+  const trimmed = String(rawValue).trim();
+  return { value: trimmed === "" ? null : trimmed, error: null };
+}
+
+module.exports = { validateCellValue, validateNoteValue };

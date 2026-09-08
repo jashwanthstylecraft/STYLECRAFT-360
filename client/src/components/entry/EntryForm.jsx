@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, StickyNote } from "lucide-react";
 import { formatValue } from "../../utils/format";
 
 const DEPARTMENT_LABELS = {
@@ -38,29 +38,105 @@ function FieldInput({ value, onChange, placeholder, error }) {
   );
 }
 
-function MetricRow({ metric, edits, onEdit, fieldErrors }) {
+// A small toggle rather than a text box on every one of the ~25 rows per
+// department — most weeks most metrics have nothing to say. Lit up (filled)
+// whenever this metric already has a saved note or one's being drafted, so
+// existing commentary is never hidden behind an unlit icon.
+function NoteToggleButton({ active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md p-1.5 transition-colors ${
+        active ? "bg-actual/10 text-actual" : "text-ink-muted hover:bg-surface-hover hover:text-ink-secondary"
+      }`}
+      title="Note for this graph this week"
+      aria-label="Toggle note for this graph this week"
+    >
+      <StickyNote size={14} />
+    </button>
+  );
+}
+
+function NoteField({ metric, edits, onEdit }) {
+  const initialNote = metric.note ?? "";
+  return (
+    <div className="mt-2">
+      <input
+        type="text"
+        value={edits[metric.noteEntryKey]?.note ?? initialNote}
+        onChange={(e) => onEdit(metric.noteEntryKey, "note", e.target.value)}
+        placeholder={metric.priorNote ? `prior: ${metric.priorNote}` : "Note for this graph this week (optional)"}
+        className="w-full rounded-lg border border-surface-border bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-actual focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function MetricRow({ metric, edits, onEdit, fieldErrors, noteExpanded, onToggleNote }) {
   const initialValue = toEditableString(metric.value, metric.format);
   const initialGoal = toEditableString(metric.goal, metric.format);
+  const hasNoteContent = Boolean(edits[metric.noteEntryKey]?.note ?? metric.note);
+  const showNote = noteExpanded || hasNoteContent;
 
   if (metric.isMulti) {
     return (
-      <div className="grid grid-cols-[1fr_140px_140px_140px] items-start gap-3 border-b border-surface-border/60 py-3 last:border-0">
+      <div className="border-b border-surface-border/60 py-3 last:border-0">
+        <div className="grid grid-cols-[1fr_140px_140px_140px_auto] items-start gap-3">
+          <div>
+            <div className="text-sm font-medium text-ink">{metric.name}</div>
+            {metric.description && <div className="mt-0.5 text-xs text-ink-muted">{metric.description}</div>}
+          </div>
+          {metric.subRows.map((sub) => (
+            <div key={sub.key}>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{sub.label}</div>
+              <FieldInput
+                value={edits[sub.entryKey]?.value ?? toEditableString(sub.value, metric.format)}
+                onChange={(v) => onEdit(sub.entryKey, "value", v)}
+                placeholder={priorHint(sub.priorValue, metric.format)}
+                error={fieldErrors[sub.entryKey]?.value}
+              />
+            </div>
+          ))}
+          {metric.hasGoal ? (
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{metric.goalLabel}</div>
+              <FieldInput
+                value={edits[metric.goalEntryKey]?.goal ?? initialGoal}
+                onChange={(v) => onEdit(metric.goalEntryKey, "goal", v)}
+                placeholder={priorHint(metric.priorGoal, metric.format)}
+                error={fieldErrors[metric.goalEntryKey]?.goal}
+              />
+            </div>
+          ) : (
+            <div />
+          )}
+          <div className="pt-5">
+            <NoteToggleButton active={showNote} onClick={() => onToggleNote(metric.slug)} />
+          </div>
+        </div>
+        {showNote && <NoteField metric={metric} edits={edits} onEdit={onEdit} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b border-surface-border/60 py-3 last:border-0">
+      <div className="grid grid-cols-[1fr_140px_140px_auto] items-start gap-3">
         <div>
           <div className="text-sm font-medium text-ink">{metric.name}</div>
           {metric.description && <div className="mt-0.5 text-xs text-ink-muted">{metric.description}</div>}
         </div>
-        {metric.subRows.map((sub) => (
-          <div key={sub.key}>
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{sub.label}</div>
-            <FieldInput
-              value={edits[sub.entryKey]?.value ?? toEditableString(sub.value, metric.format)}
-              onChange={(v) => onEdit(sub.entryKey, "value", v)}
-              placeholder={priorHint(sub.priorValue, metric.format)}
-              error={fieldErrors[sub.entryKey]?.value}
-            />
-          </div>
-        ))}
-        {metric.hasGoal && (
+        <div>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Value</div>
+          <FieldInput
+            value={edits[metric.entryKey]?.value ?? initialValue}
+            onChange={(v) => onEdit(metric.entryKey, "value", v)}
+            placeholder={priorHint(metric.priorValue, metric.format)}
+            error={fieldErrors[metric.entryKey]?.value}
+          />
+        </div>
+        {metric.hasGoal ? (
           <div>
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{metric.goalLabel}</div>
             <FieldInput
@@ -70,39 +146,14 @@ function MetricRow({ metric, edits, onEdit, fieldErrors }) {
               error={fieldErrors[metric.goalEntryKey]?.goal}
             />
           </div>
+        ) : (
+          <div />
         )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-[1fr_140px_140px] items-start gap-3 border-b border-surface-border/60 py-3 last:border-0">
-      <div>
-        <div className="text-sm font-medium text-ink">{metric.name}</div>
-        {metric.description && <div className="mt-0.5 text-xs text-ink-muted">{metric.description}</div>}
-      </div>
-      <div>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Value</div>
-        <FieldInput
-          value={edits[metric.entryKey]?.value ?? initialValue}
-          onChange={(v) => onEdit(metric.entryKey, "value", v)}
-          placeholder={priorHint(metric.priorValue, metric.format)}
-          error={fieldErrors[metric.entryKey]?.value}
-        />
-      </div>
-      {metric.hasGoal ? (
-        <div>
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{metric.goalLabel}</div>
-          <FieldInput
-            value={edits[metric.goalEntryKey]?.goal ?? initialGoal}
-            onChange={(v) => onEdit(metric.goalEntryKey, "goal", v)}
-            placeholder={priorHint(metric.priorGoal, metric.format)}
-            error={fieldErrors[metric.goalEntryKey]?.goal}
-          />
+        <div className="pt-5">
+          <NoteToggleButton active={showNote} onClick={() => onToggleNote(metric.slug)} />
         </div>
-      ) : (
-        <div />
-      )}
+      </div>
+      {showNote && <NoteField metric={metric} edits={edits} onEdit={onEdit} />}
     </div>
   );
 }
@@ -112,10 +163,20 @@ export default function EntryForm({ entryData, onSave, isSaving }) {
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState([]);
   const [successAt, setSuccessAt] = useState(null);
+  const [expandedNoteSlugs, setExpandedNoteSlugs] = useState(() => new Set());
 
   function handleEdit(entryKey, field, rawValue) {
     setEdits((prev) => ({ ...prev, [entryKey]: { ...prev[entryKey], [field]: rawValue } }));
     setSuccessAt(null);
+  }
+
+  function toggleNote(slug) {
+    setExpandedNoteSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
   }
 
   const fieldErrors = {};
@@ -166,7 +227,15 @@ export default function EntryForm({ entryData, onSave, isSaving }) {
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-muted">{DEPARTMENT_LABELS[deptKey]}</h3>
               <div>
                 {dept.metrics.map((metric) => (
-                  <MetricRow key={metric.slug} metric={metric} edits={edits} onEdit={handleEdit} fieldErrors={fieldErrors} />
+                  <MetricRow
+                    key={metric.slug}
+                    metric={metric}
+                    edits={edits}
+                    onEdit={handleEdit}
+                    fieldErrors={fieldErrors}
+                    noteExpanded={expandedNoteSlugs.has(metric.slug)}
+                    onToggleNote={toggleNote}
+                  />
                 ))}
               </div>
             </div>

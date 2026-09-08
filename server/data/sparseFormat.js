@@ -14,9 +14,17 @@ function toPositional(sparseMetric, weekEndings) {
     ? weekEndings.map((iso) => (Object.prototype.hasOwnProperty.call(sparseMetric.goals, iso) ? sparseMetric.goals[iso] : null))
     : undefined;
   const goal = goalSeries ? lastNonNull(goalSeries) : null;
+  // Free-text commentary, one per metric per week — never charted, just
+  // resolved down to "the latest week's note" the same way `goal` resolves,
+  // so a note entered for this week shows up on the detail page regardless
+  // of which period/range is currently selected (see withLatestWeekSummary).
+  const noteSeries = sparseMetric.notes
+    ? weekEndings.map((iso) => (Object.prototype.hasOwnProperty.call(sparseMetric.notes, iso) ? sparseMetric.notes[iso] : null))
+    : undefined;
+  const note = noteSeries ? lastNonNull(noteSeries) : null;
 
-  const { values, goals, ...structural } = sparseMetric;
-  return { ...structural, series, goalSeries, goal };
+  const { values, goals, notes, ...structural } = sparseMetric;
+  return { ...structural, series, goalSeries, goal, noteSeries, note };
 }
 
 function lastNonNull(arr) {
@@ -61,16 +69,24 @@ function stripNullSubKeys(v) {
 function toSparse(positionalMetric, weekEndings) {
   const values = {};
   const goals = {};
+  const notes = {};
 
   weekEndings.forEach((iso, i) => {
     const v = positionalMetric.series?.[i];
     if (!isEmptyPoint(v)) values[iso] = stripNullSubKeys(v);
     const g = positionalMetric.goalSeries?.[i];
     if (g !== null && g !== undefined) goals[iso] = g;
+    const n = positionalMetric.noteSeries?.[i];
+    if (n !== null && n !== undefined && n !== "") notes[iso] = n;
   });
 
-  const { series, goalSeries, goal, ...structural } = positionalMetric;
-  return { ...structural, values, ...(Object.keys(goals).length ? { goals } : {}) };
+  const { series, goalSeries, goal, noteSeries, note, ...structural } = positionalMetric;
+  return {
+    ...structural,
+    values,
+    ...(Object.keys(goals).length ? { goals } : {}),
+    ...(Object.keys(notes).length ? { notes } : {}),
+  };
 }
 
 // Every weekEnding key present across a sparse metric's values/goals — used

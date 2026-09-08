@@ -11,7 +11,7 @@
 const repository = require("../data/repository");
 const sharedRegistry = require("../data/sharedRegistry");
 const snapshotService = require("./snapshotService");
-const { validateCellValue } = require("./metricValidation");
+const { validateCellValue, validateNoteValue } = require("./metricValidation");
 
 const DEPARTMENT_KEYS = ["sales", "inventory", "finance", "operations", "marketing", "customer-service"];
 
@@ -55,6 +55,12 @@ function buildMetricRow(registryMetric, sparseMetrics, weekEnding, priorWeekEndi
     goalEntryKey,
     goal: metric?.goals?.[weekEnding] ?? null,
     priorGoal: priorWeekEnding ? metric?.goals?.[priorWeekEnding] ?? null : null,
+    // Free-text commentary — one per metric per week, entered/edited via the
+    // same metric-level entryKey as the goal (never per sub-row, even for a
+    // stacked/grouped metric — it's a note about the whole graph that week).
+    noteEntryKey: goalEntryKey,
+    note: metric?.notes?.[weekEnding] ?? null,
+    priorNote: priorWeekEnding ? metric?.notes?.[priorWeekEnding] ?? null : null,
   };
 
   if (seriesKeys) {
@@ -138,6 +144,11 @@ function validateEntries(entries) {
       if (error) errors.push({ entryKey, field: "goal", message: error });
       else validated[entryKey] = { ...validated[entryKey], goal: value };
     }
+    if (payload.note !== undefined) {
+      const { value, error } = validateNoteValue(payload.note);
+      if (error) errors.push({ entryKey, field: "note", message: error });
+      else validated[entryKey] = { ...validated[entryKey], note: value };
+    }
   }
 
   return { errors, validated };
@@ -165,12 +176,20 @@ async function saveWeek({ weekEnding, entries, note }) {
       const existing = sparse.METRICS.find((m) => m.slug === registryMetric.slug);
       const values = { ...(existing?.values ?? {}) };
       const goals = { ...(existing?.goals ?? {}) };
+      const notes = { ...(existing?.notes ?? {}) };
       const seriesKeys = sharedRegistry.seriesKeysFor(registryMetric);
       const goalEntryKey = entryKeyFor(registryMetric.slug);
 
       if (validated[goalEntryKey]?.goal !== undefined) {
         if (validated[goalEntryKey].goal === null) delete goals[weekEnding];
         else goals[weekEnding] = validated[goalEntryKey].goal;
+      }
+
+      // Notes are metric-wide (never per sub-row, even for a stacked/grouped
+      // metric), keyed the same way goals are.
+      if (validated[goalEntryKey]?.note !== undefined) {
+        if (validated[goalEntryKey].note === null) delete notes[weekEnding];
+        else notes[weekEnding] = validated[goalEntryKey].note;
       }
 
       // A validated value of `null` means the user cleared the cell — the
@@ -203,6 +222,7 @@ async function saveWeek({ weekEnding, entries, note }) {
 
       const clean = { slug: registryMetric.slug, values };
       if (Object.keys(goals).length > 0) clean.goals = goals;
+      if (Object.keys(notes).length > 0) clean.notes = notes;
       return clean;
     });
 
