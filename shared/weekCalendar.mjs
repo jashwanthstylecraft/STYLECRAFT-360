@@ -4,7 +4,7 @@
 // new list. True ESM — see weeks.mjs's header comment for why (Vite serves
 // local files as native ESM with no CJS interop).
 export const CALENDAR_START = "2022-10-14";
-export const CALENDAR_END = "2027-03-12";
+export const CALENDAR_END = "2027-12-31";
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
