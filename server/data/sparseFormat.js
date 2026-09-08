@@ -14,14 +14,19 @@ function toPositional(sparseMetric, weekEndings) {
     ? weekEndings.map((iso) => (Object.prototype.hasOwnProperty.call(sparseMetric.goals, iso) ? sparseMetric.goals[iso] : null))
     : undefined;
   const goal = goalSeries ? lastNonNull(goalSeries) : null;
-  // Free-text commentary, one per metric per week — never charted, just
-  // resolved down to "the latest week's note" the same way `goal` resolves,
-  // so a note entered for this week shows up on the detail page regardless
-  // of which period/range is currently selected (see withLatestWeekSummary).
+  // Free-text commentary, one per metric per week — never charted. Unlike
+  // `goal` (which intentionally carries an older week's value forward via
+  // lastNonNull, since a goal usually stays put until explicitly changed),
+  // a note must NOT carry forward: it's this week's specific commentary, so
+  // it only shows when the exact latest week (the last entry in
+  // weekEndings, via withLatestWeekSummary's always-latest-anchored window)
+  // has one — an old note from weeks ago must disappear the moment a newer
+  // week's values are entered without a note of its own, not linger and
+  // read as if it were still current.
   const noteSeries = sparseMetric.notes
     ? weekEndings.map((iso) => (Object.prototype.hasOwnProperty.call(sparseMetric.notes, iso) ? sparseMetric.notes[iso] : null))
     : undefined;
-  const note = noteSeries ? lastNonNull(noteSeries) : null;
+  const note = noteSeries ? (noteSeries[noteSeries.length - 1] ?? null) : null;
 
   const { values, goals, notes, ...structural } = sparseMetric;
   return { ...structural, series, goalSeries, goal, noteSeries, note };
