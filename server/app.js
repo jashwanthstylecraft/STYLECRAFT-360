@@ -50,12 +50,23 @@ app.use(requireAuth);
 // see the big comment at the top of data/repository.js for why this is a
 // short-TTL cache-refresh rather than threading async through the ~13
 // files that read department data.
+//
+// The four ensureFresh* calls are fully independent (each owns its own
+// module-level cache, no shared state, no ordering dependency), so they run
+// in parallel rather than sequentially awaited one at a time. On a cache
+// miss each one is a real Supabase round-trip; awaiting them in series
+// means a single request holds its function instance open for the SUM of
+// four network waits instead of the MAX of them — under Fluid Compute,
+// Provisioned Memory bills for that whole held-open duration (including
+// I/O wait, not just CPU time), so this was directly inflating usage.
 app.use(async (req, res, next) => {
   try {
-    await repository.ensureFreshSnapshot();
-    await customMetrics.ensureFreshCustomMetrics();
-    await metricNameOverrides.ensureFreshMetricNameOverrides();
-    await hiddenMetrics.ensureFreshHiddenMetrics();
+    await Promise.all([
+      repository.ensureFreshSnapshot(),
+      customMetrics.ensureFreshCustomMetrics(),
+      metricNameOverrides.ensureFreshMetricNameOverrides(),
+      hiddenMetrics.ensureFreshHiddenMetrics(),
+    ]);
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
