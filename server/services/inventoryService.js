@@ -1,5 +1,5 @@
 const repository = require("../data/repository");
-const { attainmentPct, wowDeltaPct, wowPointDelta, seriesForKey, sumOrNull, buildMetric, withLatestWeekSummary } = require("./metricsHelpers");
+const { attainmentPct, wowDeltaPct, wowPointDelta, seriesForKey, sumOrNull, buildMetric, withLatestWeekSummary, withYtd } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
 function buildSummary(WEEKS, METRICS) {
@@ -41,15 +41,19 @@ function buildSummary(WEEKS, METRICS) {
   };
 }
 
-function getInventoryMetrics(period, range) {
+function getInventoryMetrics(period, range, opts = {}) {
   const raw = repository.getDepartmentData("inventory", range);
   const { WEEKS, WEEK_ENDINGS, AS_OF, METRICS, period: resolvedPeriod } = applyPeriodToDepartment(raw, period);
+  let metrics = withLatestWeekSummary("inventory", METRICS.map(buildMetric), buildMetric);
+  if (!opts.skipYtd) {
+    metrics = withYtd(metrics, (ytdRange) => getInventoryMetrics("weekly", ytdRange, { skipYtd: true }));
+  }
   return {
     asOf: AS_OF,
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: withLatestWeekSummary("inventory", METRICS.map(buildMetric), buildMetric),
+    metrics,
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };

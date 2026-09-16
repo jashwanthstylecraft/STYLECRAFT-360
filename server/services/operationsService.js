@@ -1,5 +1,5 @@
 const repository = require("../data/repository");
-const { wowDeltaPct, seriesForKey, sumOrNull, avgOrNull, buildMetric, withLatestWeekSummary } = require("./metricsHelpers");
+const { wowDeltaPct, seriesForKey, sumOrNull, avgOrNull, buildMetric, withLatestWeekSummary, withYtd } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
 // Defective Returns, Repair Rate %, Customer Returns, and NEW Social
@@ -51,15 +51,19 @@ function buildSummary(WEEKS, METRICS) {
   };
 }
 
-function getOperationsMetrics(period, range) {
+function getOperationsMetrics(period, range, opts = {}) {
   const raw = repository.getDepartmentData("operations", range);
   const { WEEKS, WEEK_ENDINGS, AS_OF, METRICS, period: resolvedPeriod } = applyPeriodToDepartment(raw, period);
+  let metrics = withLatestWeekSummary("operations", METRICS.map(buildMetric), buildMetric);
+  if (!opts.skipYtd) {
+    metrics = withYtd(metrics, (ytdRange) => getOperationsMetrics("weekly", ytdRange, { skipYtd: true }));
+  }
   return {
     asOf: AS_OF,
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: withLatestWeekSummary("operations", METRICS.map(buildMetric), buildMetric),
+    metrics,
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };

@@ -3,6 +3,8 @@
 // behavior must stay byte-for-byte unchanged, so it isn't refactored onto
 // this shared module.
 const repository = require("../data/repository");
+const sharedRegistry = require("../data/sharedRegistry");
+const { buildYtdStats } = require("./detailStats");
 
 function attainmentPct(result, goal) {
   if (result === null || result === undefined) return null;
@@ -160,6 +162,37 @@ function withLatestWeekSummary(departmentKey, metrics, buildMetricFn) {
   });
 }
 
+// "So far this calendar year" — anchored to the latest real data week
+// (not the calendar year's end), for the same reason withLatestWeekSummary
+// anchors to the latest week: goals are typically pre-filled for the whole
+// year up front, so summing straight through December would count months
+// of not-yet-happened goal targets with no matching result. Mirrors
+// detailService.js's private currentYearRange (kept separate there
+// intentionally — that file's YTD is independently tested per-metric).
+function currentYearRange() {
+  const anchor = repository.getLatestDataWeekEndingAcrossDepartments() ?? sharedRegistry.currentWeek(new Date());
+  const currentYear = new Date(`${anchor}T00:00:00Z`).getUTCFullYear();
+  const yearWeeks = sharedRegistry.generateWeeks().filter((w) => w.year === currentYear);
+  if (!yearWeeks.length) return null;
+  const to = yearWeeks.some((w) => w.weekEnding === anchor) ? anchor : yearWeeks[yearWeeks.length - 1].weekEnding;
+  return { from: yearWeeks[0].weekEnding, to };
+}
+
+// Attaches a `ytd` field (buildYtdStats' `{blocks}` shape, or null when the
+// metric has no meaningful YTD comparison — see buildYtdStats) to every
+// metric in a department's bulk list, so a whole grid of cards can show
+// YTD without a per-card detail-page fetch. `getWeeklyMetricsForRange` is
+// the calling department's own getXMetrics function, invoked back with
+// `{ skipYtd: true }` so this never recurses into itself.
+function withYtd(metrics, getWeeklyMetricsForRange) {
+  const ytdRange = currentYearRange();
+  if (!ytdRange) return metrics.map((m) => ({ ...m, ytd: null }));
+
+  const ytdMetrics = getWeeklyMetricsForRange(ytdRange).metrics;
+  const ytdBySlug = new Map(ytdMetrics.map((m) => [m.slug, buildYtdStats(m)]));
+  return metrics.map((metric) => ({ ...metric, ytd: ytdBySlug.get(metric.slug) ?? null }));
+}
+
 module.exports = {
   attainmentPct,
   wowDeltaPct,
@@ -171,4 +204,5 @@ module.exports = {
   avgOrNull,
   buildMetric,
   withLatestWeekSummary,
+  withYtd,
 };

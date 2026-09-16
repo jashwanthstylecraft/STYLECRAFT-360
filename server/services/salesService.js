@@ -1,6 +1,6 @@
 const repository = require("../data/repository");
 const { applyPeriodToDepartment } = require("./aggregate");
-const { withLatestWeekSummary } = require("./metricsHelpers");
+const { withLatestWeekSummary, withYtd } = require("./metricsHelpers");
 
 // result/goal in the API always reflect the latest week, derived here so the
 // frontend never recomputes business logic — it only renders what it's given.
@@ -128,15 +128,19 @@ function buildSummary(WEEKS, METRICS) {
   };
 }
 
-function getSalesMetrics(period, range) {
+function getSalesMetrics(period, range, opts = {}) {
   const raw = repository.getDepartmentData("sales", range);
   const { WEEKS, WEEK_ENDINGS, AS_OF, METRICS, period: resolvedPeriod } = applyPeriodToDepartment(raw, period);
+  let metrics = withLatestWeekSummary("sales", METRICS.map(buildMetric), buildMetric);
+  if (!opts.skipYtd) {
+    metrics = withYtd(metrics, (ytdRange) => getSalesMetrics("weekly", ytdRange, { skipYtd: true }));
+  }
   return {
     asOf: AS_OF,
     weeks: WEEKS,
     weekEndings: WEEK_ENDINGS,
     period: resolvedPeriod,
-    metrics: withLatestWeekSummary("sales", METRICS.map(buildMetric), buildMetric),
+    metrics,
     summary: buildSummary(WEEKS, METRICS),
     isSampleData: repository.isUsingSampleData(),
   };
