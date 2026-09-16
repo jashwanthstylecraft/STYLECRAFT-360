@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateAllDataQueries } from "./dataQueryKeys";
+import { ENABLE_SSE } from "../config/features";
 
-const POLL_INTERVAL_MS = 8000;
+const POLL_INTERVAL_MS = 30000;
 const SSE_RECONNECT_MS = 3000;
 
 // SSE-first, polling fallback — same transport pattern as useCounter.js.
@@ -73,7 +74,8 @@ export function useDataUpdatesListener() {
     }
 
     pollOnce();
-    connectSSE();
+    if (ENABLE_SSE) connectSSE();
+    else startPolling();
 
     return () => {
       cancelled = true;

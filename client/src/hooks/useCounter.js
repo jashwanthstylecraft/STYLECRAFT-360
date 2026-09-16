@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ENABLE_SSE } from "../config/features";
 
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 30000;
 const SSE_RECONNECT_MS = 3000;
 
 // SSE-first, polling fallback. Only one transport is ever active at a time —
@@ -59,7 +60,8 @@ export function useCounter() {
     }
 
     pollOnce();
-    connectSSE();
+    if (ENABLE_SSE) connectSSE();
+    else startPolling();
 
     return () => {
       cancelled = true;
