@@ -1,5 +1,5 @@
 const repository = require("../data/repository");
-const { buildMetric, withLatestWeekSummary, withYtd } = require("./metricsHelpers");
+const { buildMetric, withLatestWeekSummary, withYtd, withRoc } = require("./metricsHelpers");
 const { applyPeriodToDepartment } = require("./aggregate");
 
 // Customer Service has no metrics of its own right now (all three moved to
@@ -15,7 +15,10 @@ function getCustomerServiceMetrics(period, range, opts = {}) {
   const { WEEKS, WEEK_ENDINGS, AS_OF, METRICS, period: resolvedPeriod } = applyPeriodToDepartment(raw, period);
   let metrics = withLatestWeekSummary("customer-service", METRICS.map(buildMetric), buildMetric);
   if (!opts.skipYtd) {
-    metrics = withYtd(metrics, (ytdRange) => getCustomerServiceMetrics("weekly", ytdRange, { skipYtd: true }));
+    metrics = withYtd(metrics, (ytdRange) => getCustomerServiceMetrics("weekly", ytdRange, { skipYtd: true, skipRoc: true }));
+  }
+  if (!opts.skipRoc) {
+    metrics = withRoc(metrics, (rocRange) => getCustomerServiceMetrics("weekly", rocRange, { skipYtd: true, skipRoc: true }));
   }
   return {
     asOf: AS_OF,

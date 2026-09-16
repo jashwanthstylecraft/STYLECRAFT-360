@@ -17,15 +17,19 @@ export default function KpiCard({ metric, weeks, basePath = "/sales", department
   // easing set has no true spring, so the overshoot lives on a wrapper
   // motion.div (a real spring) around an otherwise normally-animated chart.
   const useOvershootWrapper = departmentKey === "finance" && !reduceMotion;
-  // Hover-to-flip only applies when there's real Year-to-Date data to show
-  // on the back — a metric with no meaningful YTD (see buildYtdStats on the
-  // server) keeps the card exactly as it was, no flip, nothing on hover.
+  // Hover-to-flip only applies when there's real Year-to-Date and/or Rate
+  // of Change data to show on the back — a metric with neither (see
+  // buildYtdStats/buildRocStats on the server) keeps the card exactly as
+  // it was, no flip, nothing on hover. A snapshot metric like Inventory
+  // Level has no YTD but does have ROC, and still gets a flip for that.
   const hasYtd = Boolean(metric.ytd?.blocks?.length);
+  const hasRoc = Boolean(metric.roc?.blocks?.length);
+  const hasFlipBack = hasYtd || hasRoc;
 
   const chart = <MetricChart metric={metric} weeks={weeks} chartAnim={chartAnim} />;
 
   const front = (
-    <div className={`${CARD_FACE_CLASSES} ${hasYtd ? "[backface-visibility:hidden]" : "transition-shadow hover:shadow-md"}`}>
+    <div className={`${CARD_FACE_CLASSES} ${hasFlipBack ? "[backface-visibility:hidden]" : "transition-shadow hover:shadow-md"}`}>
       <MetricSummaryHeader metric={metric} />
 
       {useOvershootWrapper ? (
@@ -46,8 +50,8 @@ export default function KpiCard({ metric, weeks, basePath = "/sales", department
 
   return (
     <motion.div className="h-full" {...cardMotionProps(motionVariant, index, reduceMotion)}>
-      <Link to={`${basePath}/${metric.slug}`} className={`group block h-full ${hasYtd ? "[perspective:1200px]" : ""}`}>
-        {hasYtd ? (
+      <Link to={`${basePath}/${metric.slug}`} className={`group block h-full ${hasFlipBack ? "[perspective:1200px]" : ""}`}>
+        {hasFlipBack ? (
           <div
             className={`relative h-full [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] ${
               reduceMotion ? "" : "transition-transform duration-700"
@@ -55,7 +59,7 @@ export default function KpiCard({ metric, weeks, basePath = "/sales", department
           >
             {front}
             <div className={`${CARD_FACE_CLASSES} absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]`}>
-              <YtdCardBack blocks={metric.ytd.blocks} />
+              <YtdCardBack ytdBlocks={metric.ytd?.blocks} rocBlocks={metric.roc?.blocks} goalDirection={metric.goalDirection} />
             </div>
           </div>
         ) : (
