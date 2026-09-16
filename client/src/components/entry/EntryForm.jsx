@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { AlertTriangle, Check, StickyNote } from "lucide-react";
+import { AlertTriangle, Check, StickyNote, CalendarRange } from "lucide-react";
 import { formatValue } from "../../utils/format";
+
+const GOAL_RANGE_PRESETS = [
+  { label: "3 months", weeks: 13 },
+  { label: "6 months", weeks: 26 },
+  { label: "12 months", weeks: 52 },
+];
 
 const DEPARTMENT_LABELS = {
   sales: "Sales",
@@ -73,11 +79,118 @@ function NoteField({ metric, edits, onEdit }) {
   );
 }
 
-function MetricRow({ metric, edits, onEdit, fieldErrors, noteExpanded, onToggleNote }) {
+// Small icon button next to a metric's Goal field — opens GoalRangePanel to
+// set that same goal value across many weeks in one action, instead of
+// typing it into each week's Data Entry one at a time.
+function GoalRangeButton({ active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md p-1.5 transition-colors ${
+        active ? "bg-actual/10 text-actual" : "text-ink-muted hover:bg-surface-hover hover:text-ink-secondary"
+      }`}
+      title="Set this goal across many weeks at once"
+      aria-label="Set goal for a range of weeks"
+    >
+      <CalendarRange size={14} />
+    </button>
+  );
+}
+
+// Applies immediately via its own request (onApply) rather than joining the
+// page's staged edits/Save flow — a range can span far beyond the single
+// week Data Entry is currently showing, so it doesn't fit that model.
+// Additive only: weeks that already have a goal are skipped, never
+// overwritten (see setGoalRange in entryService.js).
+function GoalRangePanel({ metric, startWeekEnding, onApply, onClose }) {
+  const [value, setValue] = useState(() => toEditableString(metric.goal, metric.format));
+  const [weeks, setWeeks] = useState(26);
+  const [customWeeks, setCustomWeeks] = useState("");
+  const [status, setStatus] = useState(null);
+  const [applying, setApplying] = useState(false);
+
+  const effectiveWeeks = customWeeks ? Number(customWeeks) : weeks;
+  const canApply = value.trim() !== "" && effectiveWeeks > 0 && !applying;
+
+  async function handleApply() {
+    setApplying(true);
+    setStatus(null);
+    const result = await onApply({ slug: metric.slug, startWeekEnding, weekCount: effectiveWeeks, value });
+    setApplying(false);
+    setStatus(result);
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-surface-border bg-surface p-3">
+      <div className="mb-2 text-xs font-semibold text-ink-secondary">
+        Set {metric.goalLabel} for {effectiveWeeks || "…"} week{effectiveWeeks === 1 ? "" : "s"}, starting {startWeekEnding}
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <div>
+          <div className="mb-1 text-[11px] text-ink-muted">Value</div>
+          <FieldInput value={value} onChange={setValue} />
+        </div>
+        <div className="flex gap-1">
+          {GOAL_RANGE_PRESETS.map((p) => (
+            <button
+              key={p.weeks}
+              type="button"
+              onClick={() => {
+                setWeeks(p.weeks);
+                setCustomWeeks("");
+              }}
+              className={`rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+                !customWeeks && weeks === p.weeks
+                  ? "border-actual bg-actual/10 text-actual"
+                  : "border-surface-border text-ink-secondary hover:bg-surface-hover"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div>
+          <div className="mb-1 text-[11px] text-ink-muted">Custom (weeks)</div>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={customWeeks}
+            onChange={(e) => setCustomWeeks(e.target.value.replace(/\D/g, ""))}
+            placeholder={String(weeks)}
+            className="w-20 rounded-lg border border-surface-border bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-actual focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleApply}
+          disabled={!canApply}
+          className="rounded-lg bg-actual px-3 py-1.5 text-xs font-semibold text-white hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {applying ? "Applying…" : "Apply"}
+        </button>
+        <button type="button" onClick={onClose} className="text-xs font-medium text-ink-muted hover:text-ink-secondary">
+          Close
+        </button>
+      </div>
+      {status?.ok && (
+        <div className="mt-2 text-xs text-positive">
+          Set {status.filled.length} week{status.filled.length === 1 ? "" : "s"}.
+          {status.skipped.length > 0 && ` Skipped ${status.skipped.length} that already had a goal.`}
+          {status.beyondCalendar > 0 && ` ${status.beyondCalendar} week(s) ran past the calendar's end and weren't set.`}
+        </div>
+      )}
+      {status && !status.ok && <div className="mt-2 text-xs text-negative">{status.errors?.[0]?.message ?? "Couldn't apply."}</div>}
+    </div>
+  );
+}
+
+function MetricRow({ metric, edits, onEdit, fieldErrors, noteExpanded, onToggleNote, startWeekEnding, onSetGoalRange }) {
   const initialValue = toEditableString(metric.value, metric.format);
   const initialGoal = toEditableString(metric.goal, metric.format);
   const hasNoteContent = Boolean(edits[metric.noteEntryKey]?.note ?? metric.note);
   const showNote = noteExpanded || hasNoteContent;
+  const [showGoalRange, setShowGoalRange] = useState(false);
 
   if (metric.isMulti) {
     return (
@@ -111,10 +224,14 @@ function MetricRow({ metric, edits, onEdit, fieldErrors, noteExpanded, onToggleN
           ) : (
             <div />
           )}
-          <div className="pt-5">
+          <div className="flex items-center gap-1 pt-5">
+            {metric.hasGoal && <GoalRangeButton active={showGoalRange} onClick={() => setShowGoalRange((v) => !v)} />}
             <NoteToggleButton active={showNote} onClick={() => onToggleNote(metric.slug)} />
           </div>
         </div>
+        {showGoalRange && (
+          <GoalRangePanel metric={metric} startWeekEnding={startWeekEnding} onApply={onSetGoalRange} onClose={() => setShowGoalRange(false)} />
+        )}
         {showNote && <NoteField metric={metric} edits={edits} onEdit={onEdit} />}
       </div>
     );
@@ -149,16 +266,20 @@ function MetricRow({ metric, edits, onEdit, fieldErrors, noteExpanded, onToggleN
         ) : (
           <div />
         )}
-        <div className="pt-5">
+        <div className="flex items-center gap-1 pt-5">
+          {metric.hasGoal && <GoalRangeButton active={showGoalRange} onClick={() => setShowGoalRange((v) => !v)} />}
           <NoteToggleButton active={showNote} onClick={() => onToggleNote(metric.slug)} />
         </div>
       </div>
+      {showGoalRange && (
+        <GoalRangePanel metric={metric} startWeekEnding={startWeekEnding} onApply={onSetGoalRange} onClose={() => setShowGoalRange(false)} />
+      )}
       {showNote && <NoteField metric={metric} edits={edits} onEdit={onEdit} />}
     </div>
   );
 }
 
-export default function EntryForm({ entryData, onSave, isSaving }) {
+export default function EntryForm({ entryData, onSave, onSetGoalRange, isSaving }) {
   const [edits, setEdits] = useState({});
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState([]);
@@ -235,6 +356,8 @@ export default function EntryForm({ entryData, onSave, isSaving }) {
                     fieldErrors={fieldErrors}
                     noteExpanded={expandedNoteSlugs.has(metric.slug)}
                     onToggleNote={toggleNote}
+                    startWeekEnding={entryData.weekEnding}
+                    onSetGoalRange={onSetGoalRange}
                   />
                 ))}
               </div>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { fetchEntryData, fetchEntryCoverage, saveEntryWeek } from "../services/api";
+import { fetchEntryData, fetchEntryCoverage, saveEntryWeek, setGoalRange } from "../services/api";
 
 export function useEntryData(weekEnding) {
   return useQuery({
@@ -23,5 +23,14 @@ export function useEntryCoverage() {
 export function useSaveEntryWeek() {
   return useMutation({
     mutationFn: ({ weekEnding, entries, note }) => saveEntryWeek(weekEnding, entries, note),
+  });
+}
+
+// Also routes through commitSnapshot() (see setGoalRange in
+// entryService.js), so it gets the same SSE-driven invalidation as a
+// regular week save — no manual query invalidation needed here either.
+export function useSetGoalRange() {
+  return useMutation({
+    mutationFn: (params) => setGoalRange(params),
   });
 }

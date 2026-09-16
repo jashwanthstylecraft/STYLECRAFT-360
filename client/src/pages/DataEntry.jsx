@@ -5,7 +5,7 @@ import PageShell from "../components/layout/PageShell";
 import WeekList from "../components/entry/WeekList";
 import EntryForm from "../components/entry/EntryForm";
 import ExportExcelDialog from "../components/data/ExportExcelDialog";
-import { useEntryData, useEntryCoverage, useSaveEntryWeek } from "../hooks/useEntryData";
+import { useEntryData, useEntryCoverage, useSaveEntryWeek, useSetGoalRange } from "../hooks/useEntryData";
 import { ENABLE_EXCEL_EXPORT } from "../config/features";
 
 export default function DataEntry() {
@@ -16,6 +16,7 @@ export default function DataEntry() {
   const { data: coverage, isLoading: coverageLoading } = useEntryCoverage();
   const { data: entryData, isLoading: entryLoading, isError, error } = useEntryData(requestedWeek);
   const saveMutation = useSaveEntryWeek();
+  const goalRangeMutation = useSetGoalRange();
 
   function selectWeek(weekEnding) {
     setSearchParams((prev) => {
@@ -29,6 +30,15 @@ export default function DataEntry() {
     try {
       await saveMutation.mutateAsync({ weekEnding: entryData.weekEnding, entries, note });
       return { ok: true };
+    } catch (err) {
+      return { ok: false, errors: err.errors ?? [{ message: err.message }] };
+    }
+  }
+
+  async function handleSetGoalRange(params) {
+    try {
+      const result = await goalRangeMutation.mutateAsync(params);
+      return result;
     } catch (err) {
       return { ok: false, errors: err.errors ?? [{ message: err.message }] };
     }
@@ -102,7 +112,13 @@ export default function DataEntry() {
                   <ChevronRight size={16} />
                 </button>
               </div>
-              <EntryForm key={entryData.weekEnding} entryData={entryData} onSave={handleSave} isSaving={saveMutation.isPending} />
+              <EntryForm
+                key={entryData.weekEnding}
+                entryData={entryData}
+                onSave={handleSave}
+                onSetGoalRange={handleSetGoalRange}
+                isSaving={saveMutation.isPending}
+              />
             </div>
           )}
           {(entryLoading || !entryData) && !isError && (

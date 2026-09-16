@@ -111,6 +111,14 @@ export function saveEntryWeek(weekEnding, entries, note) {
   });
 }
 
+export function setGoalRange({ slug, startWeekEnding, weekCount, value }) {
+  return request(`/entry/goal-range`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug, startWeekEnding, weekCount, value }),
+  });
+}
+
 export function setCounterTotal(total) {
   return request("/counter", {
     method: "PUT",

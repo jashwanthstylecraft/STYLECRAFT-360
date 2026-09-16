@@ -22,4 +22,15 @@ router.put("/week/:weekEnding", async (req, res) => {
   }
 });
 
+router.put("/goal-range", async (req, res) => {
+  const { slug, startWeekEnding, weekCount, value } = req.body || {};
+  try {
+    const result = await entryService.setGoalRange({ slug, startWeekEnding, weekCount, value });
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

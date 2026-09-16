@@ -238,6 +238,86 @@ async function saveWeek({ weekEnding, entries, note }) {
   return { ok: true, meta };
 }
 
+// Bulk goal fill: sets the SAME goal value across N consecutive weeks
+// starting at a given week, for one metric — "set this goal for the next 6
+// months" instead of typing it in week by week. Strictly additive, same
+// philosophy as the Google Sheet sync script: a week that already has a
+// goal is left untouched, never silently overwritten.
+async function setGoalRange({ slug, startWeekEnding, weekCount, value }) {
+  const registryMetric = sharedRegistry.getMetric(slug);
+  if (!registryMetric) {
+    return { ok: false, errors: [{ message: `Unknown metric "${slug}".` }] };
+  }
+
+  const allWeeks = sharedRegistry.generateWeeks();
+  const startIndex = allWeeks.findIndex((w) => w.weekEnding === startWeekEnding);
+  if (startIndex === -1) {
+    return { ok: false, errors: [{ message: `"${startWeekEnding}" is not a Friday in the master calendar (${sharedRegistry.CALENDAR_START} – ${sharedRegistry.CALENDAR_END}).` }] };
+  }
+
+  const count = Number(weekCount);
+  if (!Number.isInteger(count) || count < 1) {
+    return { ok: false, errors: [{ message: "weekCount must be a positive whole number of weeks." }] };
+  }
+
+  const { value: validatedValue, error } = validateCellValue(value, registryMetric);
+  if (error) return { ok: false, errors: [{ field: "value", message: error }] };
+  if (validatedValue === null) return { ok: false, errors: [{ field: "value", message: "A goal value is required." }] };
+
+  // The calendar may run out before `count` weeks are reached (e.g.
+  // starting near CALENDAR_END) — fill as many real weeks as exist and
+  // report the shortfall rather than pretending the rest were set.
+  const targetWeeks = allWeeks.slice(startIndex, startIndex + count).map((w) => w.weekEnding);
+  const beyondCalendar = count - targetWeeks.length;
+
+  const departmentKey = registryMetric.department;
+  const filled = [];
+  const skipped = [];
+
+  const departments = {};
+  for (const deptKey of DEPARTMENT_KEYS) {
+    const sparse = repository.getSparseDepartmentData(deptKey);
+    if (deptKey !== departmentKey) {
+      departments[deptKey] = { METRICS: sparse.METRICS };
+      continue;
+    }
+
+    const METRICS = sharedRegistry.getDepartmentMetrics(deptKey).map((rm) => {
+      const existing = sparse.METRICS.find((m) => m.slug === rm.slug);
+      if (rm.slug !== slug) {
+        return existing ?? { slug: rm.slug, values: {} };
+      }
+
+      const goals = { ...(existing?.goals ?? {}) };
+      for (const weekEnding of targetWeeks) {
+        if (goals[weekEnding] !== undefined) skipped.push(weekEnding);
+        else {
+          goals[weekEnding] = validatedValue;
+          filled.push(weekEnding);
+        }
+      }
+
+      const clean = { slug: rm.slug, values: existing?.values ?? {} };
+      if (Object.keys(goals).length > 0) clean.goals = goals;
+      if (existing?.notes && Object.keys(existing.notes).length > 0) clean.notes = existing.notes;
+      return clean;
+    });
+    departments[deptKey] = { METRICS };
+  }
+
+  if (filled.length === 0) {
+    return { ok: true, slug, filled, skipped, beyondCalendar, noop: true };
+  }
+
+  const meta = await snapshotService.commitSnapshot(departments, {
+    filename: `Goal range: ${registryMetric.name}`,
+    note: `Set goal ${validatedValue} for ${filled.length} week(s) starting ${startWeekEnding}`,
+    source: "Bulk goal fill",
+  });
+
+  return { ok: true, slug, filled, skipped, beyondCalendar, meta };
+}
+
 // Aggregate-only view of every calendar week's data coverage — just a count
 // of how many metrics (across all departments) have a value that week, not
 // the values themselves. Powers the /data-entry week list's coverage dots
@@ -270,4 +350,4 @@ function getCoverage() {
   };
 }
 
-module.exports = { getEntryData, saveWeek, getCoverage };
+module.exports = { getEntryData, saveWeek, setGoalRange, getCoverage };
