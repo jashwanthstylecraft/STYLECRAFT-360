@@ -215,9 +215,57 @@ function buildYtdStats(metric) {
   return blocks.length ? { blocks } : null;
 }
 
+// 13/26/39-week Percent Rate of Change — "how fast is this metric moving"
+// at three lookback horizons (the weekly-calendar equivalent of the usual
+// 3/6/9-month momentum windows: 13 weeks/quarter). Unlike buildYtdStats,
+// this is NOT limited to "last"-aggregated metrics — it compares two point
+// values (now vs. N weeks ago), which is meaningful for a snapshot/balance
+// metric (e.g. "Inventory Level is up 12% over the last 26 weeks") just as
+// much as a summable one. Always a percent, regardless of the metric's own
+// display format, so blocks carry no `format` field.
+const ROC_LOOKBACKS = [
+  { key: "roc13Week", label: "13-Week", weeks: 13 },
+  { key: "roc26Week", label: "26-Week", weeks: 26 },
+  { key: "roc39Week", label: "39-Week", weeks: 39 },
+];
+
+function percentRocAt(series, weeksBack) {
+  const latestIndex = series.length - 1;
+  const pastIndex = latestIndex - weeksBack;
+  if (latestIndex < 0 || pastIndex < 0) return null;
+  const current = series[latestIndex];
+  const past = series[pastIndex];
+  if (!isPresent(current) || !isPresent(past) || past === 0) return null;
+  return ((current - past) / past) * 100;
+}
+
+// `metric` must carry enough weekly history to look ROC_LOOKBACKS' furthest
+// (39) weeks back — see rocRange() in detailService.js, which fetches a
+// wide-enough window independent of whatever period/range the chart itself
+// is showing (same reasoning as buildYtdStats' ytdRange). A lookback with
+// no real data that far back returns null for just that one period, not
+// the whole block — early weeks of a metric's history legitimately don't
+// have a 39-week-ago value yet.
+function buildRocStats(metric) {
+  const blocks = resolveSeries(metric).map(({ key, label, series }) => ({
+    key,
+    label,
+    periods: ROC_LOOKBACKS.map(({ key: periodKey, label: periodLabel, weeks }) => ({
+      key: periodKey,
+      label: periodLabel,
+      weeks,
+      value: percentRocAt(series, weeks),
+    })),
+  }));
+
+  const hasAny = blocks.some((b) => b.periods.some((p) => p.value !== null));
+  return hasAny ? { blocks } : null;
+}
+
 module.exports = {
   buildDetailStats,
   buildYtdStats,
+  buildRocStats,
   computeSeriesStats,
   resolveSeries,
   goalHit,

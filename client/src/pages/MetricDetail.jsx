@@ -7,6 +7,7 @@ import MetricChart from "../components/kpi/MetricChart";
 import MetricSummaryHeader from "../components/kpi/MetricSummaryHeader";
 import StatsStrip from "../components/detail/StatsStrip";
 import YtdComparisonBar from "../components/detail/YtdComparisonBar";
+import RateOfChangePanel from "../components/detail/RateOfChangePanel";
 import DataTable, { buildCsvRows } from "../components/detail/DataTable";
 import SampleDataBadge from "../components/data/SampleDataBadge";
 import { useMetricDetail } from "../hooks/useMetricDetail";
@@ -202,10 +203,11 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
     );
   }
 
-  const { hero, stats, ytd, table, isSampleData, prev, next } = data;
+  const { hero, stats, ytd, roc, table, isSampleData, prev, next } = data;
   const metric = hero.metric;
   const format = metric.format || "currency";
   const hasYtd = Boolean(ytd?.blocks?.length);
+  const hasRoc = Boolean(roc?.blocks?.length);
 
   function handleExportCsv() {
     const { headers, body } = buildCsvRows(metric, table, format);
@@ -245,6 +247,7 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
         <div className="mb-6 space-y-5">
           <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} ytdBlocks={ytd?.blocks} />
           {hasYtd && <YtdComparisonBar blocks={ytd?.blocks} />}
+          {hasRoc && <RateOfChangePanel blocks={roc?.blocks} goalDirection={metric.goalDirection} />}
           {metric.note && (
             <div className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-5">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-secondary">Note</h3>
