@@ -38,7 +38,7 @@ export default function DataUpload() {
   const [applyError, setApplyError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [isRestoring, setIsRestoring] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportDialogMode, setExportDialogMode] = useState(null); // null | "charts" | "data"
 
   function invalidateEverything() {
     invalidateAllDataQueries(queryClient);
@@ -115,9 +115,19 @@ export default function DataUpload() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setExportDialogMode("data")}
+            className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
+              <FileSpreadsheet size={15} />
+              Download data
+            </span>
+            <span className="text-xs text-ink-muted">Pick any date range</span>
+          </button>
           {ENABLE_EXCEL_EXPORT && (
             <button
-              onClick={() => setShowExportDialog(true)}
+              onClick={() => setExportDialogMode("charts")}
               className="flex flex-col items-start rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-left shadow-sm hover:bg-surface-hover"
             >
               <span className="flex items-center gap-1.5 text-sm font-medium text-heading">
@@ -137,7 +147,7 @@ export default function DataUpload() {
         </div>
       </div>
 
-      {showExportDialog && <ExportExcelDialog onClose={() => setShowExportDialog(false)} />}
+      {exportDialogMode && <ExportExcelDialog mode={exportDialogMode} onClose={() => setExportDialogMode(null)} />}
 
       {successMessage && (
         <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-positive dark:border-green-500/30 dark:bg-green-500/10">{successMessage}</div>

@@ -3,7 +3,7 @@ import { X, Loader2, AlertTriangle, Download } from "lucide-react";
 import { useDataStatus } from "../../hooks/useDataStatus";
 import { rangeForPreset, snapToNearestWeekEnding } from "../../utils/datePresets";
 import { CALENDAR_START, CALENDAR_END } from "../../utils/weekCalendar";
-import { buildExportExcelUrl } from "../../services/api";
+import { buildExportExcelUrl, buildExportDataUrl } from "../../services/api";
 
 const RANGE_OPTIONS = [
   { value: "all", label: "All data" },
@@ -30,7 +30,12 @@ function resolveRange(rangeOption, anchor, customFrom, customTo) {
   return null; // "all" — the server's own default already trims to first/last real data
 }
 
-export default function ExportExcelDialog({ onClose }) {
+// mode "charts": the original Python-built workbook (native charts + data,
+// only works where a Python process can run — local/self-hosted).
+// mode "data": a pure-JS, chart-free workbook that works everywhere,
+// including serverless deployments like Vercel where "charts" is disabled
+// — same range picker, just a different endpoint and no chart caveat.
+export default function ExportExcelDialog({ onClose, mode = "charts" }) {
   const { data: status } = useDataStatus();
   const [rangeOption, setRangeOption] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -47,7 +52,8 @@ export default function ExportExcelDialog({ onClose }) {
     setErrorMessage(null);
     try {
       const range = resolveRange(rangeOption, status?.latestDataWeekEnding ?? null, customFrom, customTo);
-      const res = await fetch(buildExportExcelUrl(range ?? {}));
+      const buildUrl = mode === "data" ? buildExportDataUrl : buildExportExcelUrl;
+      const res = await fetch(buildUrl(range ?? {}));
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || `Export failed (HTTP ${res.status}).`);
@@ -71,16 +77,25 @@ export default function ExportExcelDialog({ onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-heading">Download Excel</h2>
+          <h2 className="text-base font-semibold text-heading">{mode === "data" ? "Download data" : "Download Excel"}</h2>
           <button onClick={onClose} className="rounded-md p-1 text-ink-secondary hover:bg-surface-hover" aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
         <p className="mb-4 text-sm text-ink-secondary">
-          Exports all saved data + native charts, two sheets: <span className="font-medium text-ink">Graphs</span> and{" "}
-          <span className="font-medium text-ink">Data</span>. Data reflects last save:{" "}
-          <span className="font-medium text-ink">{lastSaveLabel}</span>.
+          {mode === "data" ? (
+            <>
+              Exports every saved value and goal for the range below as a plain spreadsheet (no charts). Data reflects last save:{" "}
+              <span className="font-medium text-ink">{lastSaveLabel}</span>.
+            </>
+          ) : (
+            <>
+              Exports all saved data + native charts, two sheets: <span className="font-medium text-ink">Graphs</span> and{" "}
+              <span className="font-medium text-ink">Data</span>. Data reflects last save:{" "}
+              <span className="font-medium text-ink">{lastSaveLabel}</span>.
+            </>
+          )}
         </p>
 
         <div className="mb-4 flex flex-wrap gap-2">

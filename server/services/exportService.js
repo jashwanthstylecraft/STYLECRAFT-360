@@ -9,9 +9,11 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
+const XLSX = require("xlsx");
 const repository = require("../data/repository");
 const sharedRegistry = require("../data/sharedRegistry");
-const { DEPARTMENT_ORDER, ROW_TYPE } = require("./xlsxSchema");
+const { DEPARTMENT_ORDER, ROW_TYPE, DATA_SHEET } = require("./xlsxSchema");
+const { humanizeKey } = require("./detailStats");
 
 const PYTHON_SCRIPT = path.join(__dirname, "..", "scripts", "build_export_workbook.py");
 const PYTHON_BIN = process.env.PYTHON_BIN || "python";
@@ -181,4 +183,91 @@ function buildExportWorkbook({ from, to } = {}) {
   }
 }
 
-module.exports = { buildExportWorkbook, computeFullDataRange, buildDataRows };
+// One column per metric/series/Value-or-Goal combination, each holding one
+// value per week — the transpose of buildDataRows' shape (which is one ROW
+// per metric/series/type, one COLUMN per week). "<Metric Name> Value" /
+// "<Metric Name> <Goal Label>" for a single-series metric; "<Metric Name>
+// <Series Label> Value"/"...  <Goal Label>" per series for a multi-series
+// one, skipping the Goal column entirely when that metric has no real
+// per-week goal at all (mirrors buildRowsForMetric's hasMetricGoal check).
+function buildTransposedColumns(weekEndings) {
+  const columns = [];
+
+  for (const departmentKey of DEPARTMENT_ORDER) {
+    const sparse = repository.getSparseDepartmentData(departmentKey);
+    const registryMetrics = sharedRegistry.getDepartmentMetrics(departmentKey);
+
+    for (const registryMetric of registryMetrics) {
+      const sparseMetric = sparse.METRICS.find((m) => m.slug === registryMetric.slug);
+      const seriesKeys = sharedRegistry.seriesKeysFor(registryMetric);
+      const goalLabel = registryMetric.goalLabel || "Goal";
+
+      if (!seriesKeys) {
+        columns.push({
+          header: `${registryMetric.name} Value`,
+          values: weekEndings.map((iso) => (isPresent(sparseMetric?.values?.[iso]) ? sparseMetric.values[iso] : null)),
+        });
+        columns.push({
+          header: `${registryMetric.name} ${goalLabel}`,
+          values: weekEndings.map((iso) => (isPresent(sparseMetric?.goals?.[iso]) ? sparseMetric.goals[iso] : null)),
+        });
+        continue;
+      }
+
+      const hasMetricGoal = Boolean(sparseMetric?.goals && Object.keys(sparseMetric.goals).length > 0);
+      seriesKeys.forEach((key, i) => {
+        const label = registryMetric.headerValues?.[i]?.label ?? humanizeKey(key);
+        columns.push({
+          header: `${registryMetric.name} ${label} Value`,
+          values: weekEndings.map((iso) => {
+            const point = sparseMetric?.values?.[iso];
+            return point && isPresent(point[key]) ? point[key] : null;
+          }),
+        });
+        if (hasMetricGoal) {
+          columns.push({
+            header: `${registryMetric.name} ${label} ${goalLabel}`,
+            values: weekEndings.map((iso) => (isPresent(sparseMetric?.goals?.[iso]) ? sparseMetric.goals[iso] : null)),
+          });
+        }
+      });
+    }
+  }
+
+  return columns;
+}
+
+// A pure-JS, chart-free alternative to buildExportWorkbook, written with
+// the `xlsx` package already in this repo instead of spawning Python — no
+// native chart objects (still Python-only — see this file's header
+// comment), but this runs everywhere buildExportWorkbook can't, serverless
+// platforms like Vercel included, which is the whole reason this is its
+// own function rather than a fallback bolted onto buildExportWorkbook.
+//
+// Transposed relative to the canonical Data-sheet schema (FIXED_COLUMNS):
+// one ROW per week (numbered #1, #2, #3... for easy reference, plus the
+// real week-ending date), one COLUMN per metric/series/Value-or-Goal — the
+// layout most people expect to pivot or chart straight from in Excel.
+function buildDataOnlyWorkbook({ from, to } = {}) {
+  const range = resolveWeekRange({ from, to });
+  if (!range.from || !range.to) {
+    throw new Error("No data has been entered anywhere yet — nothing to export.");
+  }
+  const weeks = sharedRegistry.generateWeeks(range.from, range.to);
+  const weekEndings = weeks.map((w) => w.weekEnding);
+  const columns = buildTransposedColumns(weekEndings);
+
+  const header = ["#", "Week Ending", ...columns.map((c) => c.header)];
+  const aoa = [header, ...weekEndings.map((iso, i) => [i + 1, iso, ...columns.map((c) => c.values[i])])];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, DATA_SHEET);
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+  const timestamp = new Date();
+  const stamp = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, "0")}-${String(timestamp.getDate()).padStart(2, "0")}_${String(timestamp.getHours()).padStart(2, "0")}${String(timestamp.getMinutes()).padStart(2, "0")}`;
+  return { buffer, filename: `StyleCraft360_Data_${stamp}.xlsx` };
+}
+
+module.exports = { buildExportWorkbook, buildDataOnlyWorkbook, computeFullDataRange, buildDataRows };

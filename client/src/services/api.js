@@ -72,6 +72,13 @@ export function buildExportExcelUrl({ from, to } = {}) {
   return `${API_BASE}/export/excel?${rangeQuery({ from, to }).replace(/^&/, "")}`;
 }
 
+// Data-only (no native charts) — works on every deployment, unlike
+// buildExportExcelUrl above, which depends on a Python child process that
+// doesn't run on serverless platforms.
+export function buildExportDataUrl({ from, to } = {}) {
+  return `${API_BASE}/export/data?${rangeQuery({ from, to }).replace(/^&/, "")}`;
+}
+
 export function uploadDataFile(file) {
   const formData = new FormData();
   formData.append("file", file);
