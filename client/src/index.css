@@ -19,6 +19,7 @@
   --color-gammaplus: #ef4444;
   --color-positive: #16a34a;
   --color-negative: #dc2626;
+  --color-roc: #d97706;
 }
 
 .dark {
@@ -38,6 +39,7 @@
   --color-gammaplus: #ef4444;
   --color-positive: #4ade80;
   --color-negative: #f87171;
+  --color-roc: #fbbf24;
 }
 
 html {

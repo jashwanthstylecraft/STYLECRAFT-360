@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X, Download, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X, Download, ArrowUpRight, ArrowDownRight, TrendingUp } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import MetricChart from "../components/kpi/MetricChart";
 import MetricSummaryHeader from "../components/kpi/MetricSummaryHeader";
 import StatsStrip from "../components/detail/StatsStrip";
 import YtdComparisonBar from "../components/detail/YtdComparisonBar";
-import RateOfChangePanel from "../components/detail/RateOfChangePanel";
 import DataTable, { buildCsvRows } from "../components/detail/DataTable";
 import SampleDataBadge from "../components/data/SampleDataBadge";
 import { useMetricDetail } from "../hooks/useMetricDetail";
@@ -75,9 +74,25 @@ function useMeasuredHeight() {
   return [ref, height];
 }
 
-function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
+function RocToggleButton({ active, onClick, className = "" }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg border p-2 shadow-sm transition-colors ${
+        active ? "border-roc bg-roc/10 text-roc" : "border-surface-border bg-surface-card text-ink-secondary hover:bg-surface-hover"
+      } ${className}`}
+      aria-label="Toggle 13-week rolling Rate of Change overlay"
+      title="13-week rolling Rate of Change overlay"
+    >
+      <TrendingUp size={16} />
+    </button>
+  );
+}
+
+function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks, rocSeries }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [boxRef, boxHeight] = useMeasuredHeight();
+  const [showRoc, setShowRoc] = useState(false);
 
   useEffect(() => {
     if (!fullscreen) return undefined;
@@ -88,11 +103,17 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
+  // The overlay only ever targets the plain Result/Goal bar chart — a
+  // metric with more than one series of its own (stacked/grouped/dual)
+  // has no single "actual" line to layer a second axis onto cleanly.
+  const canShowRoc = metric.chartType === "bar" && Boolean(rocSeries?.blocks?.[0]?.values?.some((v) => v !== null));
+
   const chartAnim = chartMotionProps(departmentKey, reduceMotion);
   const heroProps = {
     height: boxHeight || 400,
     showBrush: true,
     labelThinThreshold: HERO_LABEL_THIN_THRESHOLD,
+    rocValues: showRoc && canShowRoc ? rocSeries.blocks[0].values : undefined,
   };
 
   const chartBlock = <MetricChart metric={metric} weeks={weeks} chartAnim={chartAnim} heroProps={heroProps} />;
@@ -102,13 +123,16 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
       <div className="fixed inset-0 z-[100] flex flex-col bg-surface-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-heading">{metric.name}</h2>
-          <button
-            onClick={() => setFullscreen(false)}
-            className="rounded-lg border border-surface-border p-2 text-ink-secondary hover:bg-surface-hover"
-            aria-label="Exit fullscreen"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {canShowRoc && <RocToggleButton active={showRoc} onClick={() => setShowRoc((v) => !v)} />}
+            <button
+              onClick={() => setFullscreen(false)}
+              className="rounded-lg border border-surface-border p-2 text-ink-secondary hover:bg-surface-hover"
+              aria-label="Exit fullscreen"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
         <div className="mb-4 flex shrink-0 justify-center">
           <div className="w-full max-w-lg">
@@ -129,14 +153,17 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks }) {
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-6">
-      <button
-        onClick={() => setFullscreen(true)}
-        className="absolute right-4 top-4 z-10 rounded-lg border border-surface-border bg-surface-card p-2 text-ink-secondary shadow-sm hover:bg-surface-hover"
-        aria-label="View fullscreen"
-        title="View fullscreen (for TV/projector display)"
-      >
-        <Maximize2 size={16} />
-      </button>
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+        {canShowRoc && <RocToggleButton active={showRoc} onClick={() => setShowRoc((v) => !v)} />}
+        <button
+          onClick={() => setFullscreen(true)}
+          className="rounded-lg border border-surface-border bg-surface-card p-2 text-ink-secondary shadow-sm hover:bg-surface-hover"
+          aria-label="View fullscreen"
+          title="View fullscreen (for TV/projector display)"
+        >
+          <Maximize2 size={16} />
+        </button>
+      </div>
       <div ref={boxRef} style={{ height: "60vh", minHeight: 320 }}>
         {boxHeight > 0 && chartBlock}
       </div>
@@ -207,7 +234,11 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
   const metric = hero.metric;
   const format = metric.format || "currency";
   const hasYtd = Boolean(ytd?.blocks?.length);
-  const hasRoc = Boolean(roc?.blocks?.length);
+  // The rolling ROC overlay is computed against the forced-weekly `raw`
+  // dataset (see rocSeriesWindow in detailService.js) — it only lines up
+  // with the chart when the chart itself is ALSO showing real weeks, not a
+  // monthly/quarterly/yearly aggregation.
+  const rocSeries = hero.period === "weekly" ? roc : null;
 
   function handleExportCsv() {
     const { headers, body } = buildCsvRows(metric, table, format);
@@ -245,9 +276,15 @@ export default function MetricDetail({ backPath = "/sales", backLabel = "Sales",
         </div>
 
         <div className="mb-6 space-y-5">
-          <HeroChart metric={metric} weeks={hero.weeks} departmentKey={departmentKey} reduceMotion={reduceMotion} ytdBlocks={ytd?.blocks} />
+          <HeroChart
+            metric={metric}
+            weeks={hero.weeks}
+            departmentKey={departmentKey}
+            reduceMotion={reduceMotion}
+            ytdBlocks={ytd?.blocks}
+            rocSeries={rocSeries}
+          />
           {hasYtd && <YtdComparisonBar blocks={ytd?.blocks} />}
-          {hasRoc && <RateOfChangePanel blocks={roc?.blocks} goalDirection={metric.goalDirection} />}
           {metric.note && (
             <div className="rounded-2xl border border-surface-border bg-surface-card p-4 shadow-sm sm:p-5">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-secondary">Note</h3>

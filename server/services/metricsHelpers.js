@@ -4,7 +4,7 @@
 // this shared module.
 const repository = require("../data/repository");
 const sharedRegistry = require("../data/sharedRegistry");
-const { buildYtdStats, buildRocStats } = require("./detailStats");
+const { buildYtdStats } = require("./detailStats");
 
 function attainmentPct(result, goal) {
   if (result === null || result === undefined) return null;
@@ -193,34 +193,6 @@ function withYtd(metrics, getWeeklyMetricsForRange) {
   return metrics.map((metric) => ({ ...metric, ytd: ytdBySlug.get(metric.slug) ?? null }));
 }
 
-// Needs 39 real weeks of history before the latest data week, independent
-// of whatever period/range the caller requested — mirrors currentYearRange
-// above and detailService.js's own rocRange (kept separate there
-// intentionally, same reasoning as currentYearRange's comment).
-const ROC_LOOKBACK_WEEKS = 39;
-
-function rocWindowRange() {
-  const anchor = repository.getLatestDataWeekEndingAcrossDepartments() ?? sharedRegistry.currentWeek(new Date());
-  const allWeeks = sharedRegistry.generateWeeks();
-  const anchorIndex = allWeeks.findIndex((w) => w.weekEnding === anchor);
-  if (anchorIndex === -1) return null;
-  const fromIndex = Math.max(0, anchorIndex - ROC_LOOKBACK_WEEKS);
-  return { from: allWeeks[fromIndex].weekEnding, to: allWeeks[anchorIndex].weekEnding };
-}
-
-// Attaches a `roc` field (buildRocStats' `{blocks}` shape, or null) to
-// every metric in a department's bulk list — same pattern as withYtd, but
-// its own 39-week-back window instead of "this calendar year," since ROC
-// compares two point values rather than summing a range.
-function withRoc(metrics, getWeeklyMetricsForRange) {
-  const window = rocWindowRange();
-  if (!window) return metrics.map((m) => ({ ...m, roc: null }));
-
-  const rocMetrics = getWeeklyMetricsForRange(window).metrics;
-  const rocBySlug = new Map(rocMetrics.map((m) => [m.slug, buildRocStats(m)]));
-  return metrics.map((metric) => ({ ...metric, roc: rocBySlug.get(metric.slug) ?? null }));
-}
-
 module.exports = {
   attainmentPct,
   wowDeltaPct,
@@ -233,5 +205,4 @@ module.exports = {
   buildMetric,
   withLatestWeekSummary,
   withYtd,
-  withRoc,
 };

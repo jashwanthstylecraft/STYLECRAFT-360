@@ -17,6 +17,7 @@ const LIGHT_COLORS = {
   axisText: "#64748B",
   surfaceCard: "#FFFFFF",
   unpaidFill: "#DBEAFE",
+  roc: "#D97706",
 };
 
 const DARK_COLORS = {
@@ -32,6 +33,7 @@ const DARK_COLORS = {
   axisText: "#94A3B8",
   surfaceCard: "#131B2E",
   unpaidFill: "#1D4ED8",
+  roc: "#FBBF24",
 };
 
 // Static export kept for the rare non-component context (none currently),

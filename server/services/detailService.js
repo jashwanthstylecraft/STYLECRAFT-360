@@ -14,7 +14,7 @@ const { getFinanceMetrics } = require("./financeService");
 const { getOperationsMetrics } = require("./operationsService");
 const { getMarketingMetrics } = require("./marketingService");
 const { getCustomerServiceMetrics } = require("./customerServiceService");
-const { buildDetailStats, buildYtdStats, buildRocStats, goalHit, humanizeKey } = require("./detailStats");
+const { buildDetailStats, buildYtdStats, buildRocSeries, goalHit, humanizeKey } = require("./detailStats");
 
 // The fullscreen YTD bar is always "this calendar year so far," independent
 // of whatever range the page's own date-range selector is currently set to.
@@ -34,19 +34,23 @@ function currentYearRange() {
   return { from: yearWeeks[0].weekEnding, to };
 }
 
-// The ROC panel needs 39 real weeks of history before the latest data
-// week, independent of whatever period/range the chart itself is showing
-// (same reasoning as currentYearRange — a "last 12 weeks" chart view has
-// nowhere near enough history to look 39 weeks back through).
-const ROC_LOOKBACK_WEEKS = 39;
+// The chart's ROC overlay is a rolling 13-week (3-month) % change LINE,
+// one value per week shown — not a single point-in-time number — so every
+// week actually on screen needs a real value 13 weeks before ITSELF, not
+// just before the latest week. Anchored to `raw`'s own displayed window
+// (not "latest data week" like currentYearRange) since the overlay must
+// align 1:1 with whatever weeks the chart is already showing.
+const ROC_ROLLING_WEEKS = 13;
 
-function rocRange() {
-  const anchor = repository.getLatestDataWeekEndingAcrossDepartments() ?? sharedRegistry.currentWeek(new Date());
+function rocSeriesWindow(raw) {
+  const firstShown = raw.weekEndings?.[0];
+  const lastShown = raw.weekEndings?.[raw.weekEndings.length - 1];
+  if (!firstShown || !lastShown) return null;
   const allWeeks = sharedRegistry.generateWeeks();
-  const anchorIndex = allWeeks.findIndex((w) => w.weekEnding === anchor);
-  if (anchorIndex === -1) return null;
-  const fromIndex = Math.max(0, anchorIndex - ROC_LOOKBACK_WEEKS);
-  return { from: allWeeks[fromIndex].weekEnding, to: allWeeks[anchorIndex].weekEnding };
+  const firstIndex = allWeeks.findIndex((w) => w.weekEnding === firstShown);
+  if (firstIndex === -1) return null;
+  const fromIndex = Math.max(0, firstIndex - ROC_ROLLING_WEEKS);
+  return { from: allWeeks[fromIndex].weekEnding, to: lastShown };
 }
 
 const DEPARTMENT_SERVICES = {
@@ -118,8 +122,17 @@ function getMetricDetail(department, slug, period, range) {
   const ytdRange = currentYearRange();
   const ytdMetric = ytdRange ? getMetrics("weekly", ytdRange).metrics.find((m) => m.slug === slug) : null;
 
-  const rocWindow = rocRange();
-  const rocMetric = rocWindow ? getMetrics("weekly", rocWindow).metrics.find((m) => m.slug === slug) : null;
+  const rocWindow = rocSeriesWindow(raw);
+  const rocWideMetric = rocWindow ? getMetrics("weekly", rocWindow).metrics.find((m) => m.slug === slug) : null;
+  const rocWide = rocWideMetric ? buildRocSeries(rocWideMetric, ROC_ROLLING_WEEKS) : null;
+  // Trim back down to exactly the weeks `raw` (and so the chart) shows —
+  // rocWide's series started ROC_ROLLING_WEEKS earlier purely so the FIRST
+  // displayed week could still look back a full 13 weeks; always slicing
+  // from the end keeps this correct even when history runs out and the
+  // window gets clamped to fewer extra weeks than requested.
+  const roc = rocWide
+    ? { weeksBack: rocWide.weeksBack, blocks: rocWide.blocks.map((b) => ({ ...b, values: b.values.slice(-raw.weeks.length) })) }
+    : null;
 
   const departmentMetrics = sharedRegistry.getDepartmentMetrics(department);
   const orderIndex = departmentMetrics.findIndex((m) => m.slug === slug);
@@ -132,7 +145,7 @@ function getMetricDetail(department, slug, period, range) {
     hero: { weeks: hero.weeks, period: hero.period, metric: heroMetric },
     stats: buildDetailStats(rawMetric, raw.weeks, raw.weekEndings),
     ytd: ytdMetric ? buildYtdStats(ytdMetric) : null,
-    roc: rocMetric ? buildRocStats(rocMetric) : null,
+    roc,
     table: buildTable(rawMetric, raw.weeks, raw.weekEndings),
     isSampleData: hero.isSampleData,
     prev: prev ? { slug: prev.slug, name: prev.name } : null,

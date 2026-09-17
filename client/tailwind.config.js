@@ -25,6 +25,9 @@ export default {
         gammaplus: {
           DEFAULT: "var(--color-gammaplus)",
         },
+        roc: {
+          DEFAULT: "var(--color-roc)",
+        },
         positive: "var(--color-positive)",
         negative: "var(--color-negative)",
         surface: {

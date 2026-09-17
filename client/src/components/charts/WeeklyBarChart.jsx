@@ -85,15 +85,22 @@ export default function WeeklyBarChart({
   barStaggerMs = 0,
   labelThinThreshold,
   showBrush = false,
+  rocValues,
 }) {
   const COLORS = useChartColors();
   const percentTicks = valueFormat === "percent" ? computePercentTicks(yDomain) : undefined;
   const resolvedDomain = percentTicks ? [percentTicks[0], percentTicks[percentTicks.length - 1]] : yDomain;
+  // Rolling 13-week % change, on its own right-side axis since it's always
+  // a percent regardless of the primary series' own units — an opt-in
+  // overlay (see HeroChart's toggle in MetricDetail.jsx), not shown unless
+  // the caller actually passes real values.
+  const showRoc = Array.isArray(rocValues) && rocValues.some((v) => v !== null && v !== undefined);
   const data = weeks.map((week, i) => ({
     week,
     actual: series[i] ?? null,
     goal: goalSeries?.[i] ?? null,
     partial: partials?.[i] ?? false,
+    roc: showRoc ? rocValues[i] ?? null : undefined,
   }));
   const useLine = shouldUseLineFallback(weeks.length);
 
@@ -122,6 +129,17 @@ export default function WeeklyBarChart({
           width={52}
           hide={compact}
         />
+        {showRoc && !compact && (
+          <YAxis
+            yAxisId="roc"
+            orientation="right"
+            tick={{ fontSize: 11, fill: COLORS.roc }}
+            tickFormatter={(v) => `${v.toFixed(0)}%`}
+            tickLine={false}
+            axisLine={false}
+            width={40}
+          />
+        )}
         {!compact && (
           <Tooltip
             cursor={{ fill: "rgba(15, 23, 42, 0.04)" }}
@@ -142,6 +160,12 @@ export default function WeeklyBarChart({
                   color: point.actual >= point.goal ? COLORS.positive : COLORS.negative,
                   shape: "rect",
                 });
+              }
+              if (showRoc && point.roc !== null && point.roc !== undefined) {
+                // formatRowValue's "percent" case expects a fraction (it
+                // multiplies by 100 itself) — point.roc is already a whole
+                // percent number, so divide back down once here.
+                rows.push({ key: "roc", label: "13-Wk ROC", value: point.roc / 100, valueFormat: "percent", color: COLORS.roc, shape: "line" });
               }
               return (
                 <ChartTooltip
@@ -201,6 +225,21 @@ export default function WeeklyBarChart({
           animationDuration={animationDuration}
           animationEasing={animationEasing}
         />
+        {showRoc && (
+          <Line
+            yAxisId="roc"
+            type="monotone"
+            dataKey="roc"
+            stroke={COLORS.roc}
+            strokeWidth={2}
+            dot={false}
+            activeDot={compact ? false : { r: 3, fill: COLORS.roc, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+            connectNulls
+            isAnimationActive={isAnimationActive}
+            animationDuration={animationDuration}
+            animationEasing={animationEasing}
+          />
+        )}
         {showBrush && (
           <Brush dataKey="week" height={22} stroke={COLORS.actual} fill={COLORS.surfaceCard} travellerWidth={8} />
         )}
