@@ -3,7 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { invalidateAllDataQueries } from "./dataQueryKeys";
 import { ENABLE_SSE } from "../config/features";
 
-const POLL_INTERVAL_MS = 30000;
+// Data only ever changes on a manual Data Entry save (weekly cadence, per
+// the business) — polling every 30s bought near-real-time cross-tab
+// updates nobody actually needed, at real per-request Vercel cost. 10
+// minutes is still fast on a human timescale for a weekly data source,
+// and cuts request volume ~20x.
+const POLL_INTERVAL_MS = 600000;
 const SSE_RECONNECT_MS = 3000;
 
 // SSE-first, polling fallback — same transport pattern as useCounter.js.

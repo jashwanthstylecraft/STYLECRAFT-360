@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ENABLE_SSE } from "../config/features";
 
-const POLL_INTERVAL_MS = 30000;
+// See the matching comment in useDataUpdatesListener.js — the underlying
+// counter changes on the same weekly cadence as everything else.
+const POLL_INTERVAL_MS = 600000;
 const SSE_RECONNECT_MS = 3000;
 
 // SSE-first, polling fallback. Only one transport is ever active at a time —
