@@ -82,7 +82,19 @@ router.post("/versions/:file/restore", adminOnly, async (req, res) => {
   }
 });
 
+// Vercel serverless functions can never actually hold this connection open
+// — the platform kills it after its own (expensive, 300s) timeout
+// regardless of anything this code does. Client-side, new page loads never
+// call this at all anymore (VITE_ENABLE_SSE=false in production — see
+// useDataUpdatesListener.js), but a browser tab left open since BEFORE
+// that shipped is still running the old JS in memory and will keep
+// retrying every few seconds forever. Ending the connection immediately
+// instead of registering it turns each of those retries into a near-
+// instant request instead of a 300-second-long one — ~100x cheaper, and
+// the only fix possible from the server side for a client that can't be
+// reached to reload.
 router.get("/stream", (req, res) => {
+  if (process.env.VERCEL) return res.status(204).end();
   uploadService.subscribeToDataUpdates(req, res);
 });
 

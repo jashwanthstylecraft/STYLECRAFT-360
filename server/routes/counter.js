@@ -13,7 +13,12 @@ router.get("/", async (req, res) => {
   }
 });
 
+// See the matching comment in routes/data.js — Vercel can't hold this open
+// regardless, and ending it immediately instead of registering it keeps
+// any still-retrying stale client cheap (near-instant) instead of costing
+// the full 300-second platform timeout per attempt.
 router.get("/stream", (req, res) => {
+  if (process.env.VERCEL) return res.status(204).end();
   counterService.subscribe(req, res);
 });
 

@@ -54,7 +54,14 @@ const SEED_BY_DEPARTMENT = {
 };
 
 const DEFAULT_WINDOW_WEEKS = 12;
-const CACHE_TTL_MS = 3000;
+// A write bypasses this entirely (setCachedSnapshot below runs on every
+// commitSnapshot, so the saving request always sees its own write
+// instantly) — this TTL only governs how stale a READ can be for everyone
+// else, and the client's own poll interval (useDataUpdatesListener.js) is
+// already 30s, so there's no benefit to this being fresher than that: it
+// would just mean more Supabase round-trips held open per request for a
+// staleness window nothing downstream can actually observe.
+const CACHE_TTL_MS = 30000;
 
 // null = "no active snapshot yet" (fresh deployment, falls back to seed
 // everywhere below, same as the old file-based "no active.json" case).

@@ -7,7 +7,10 @@
 // is, refreshed by the same per-request middleware (see app.js).
 const supabase = require("./supabaseClient");
 
-const CACHE_TTL_MS = 3000;
+// See repository.js's CACHE_TTL_MS comment — a write bypasses this, and
+// the client's own poll interval is already 30s, so there's no benefit to
+// checking Supabase for changes more often than that.
+const CACHE_TTL_MS = 30000;
 
 let cached = new Set();
 let cachedAt = 0;
