@@ -142,6 +142,14 @@ export function login(username, password) {
   });
 }
 
+export function loginWithEmail(email) {
+  return request("/auth/email-access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
 export function logout() {
   return request("/auth/logout", { method: "POST" });
 }
