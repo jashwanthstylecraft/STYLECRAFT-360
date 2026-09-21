@@ -234,7 +234,7 @@ export default function WeeklyBarChart({
             strokeWidth={2}
             dot={false}
             activeDot={compact ? false : { r: 3, fill: COLORS.roc, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
-            connectNulls
+            connectNulls={false}
             isAnimationActive={isAnimationActive}
             animationDuration={animationDuration}
             animationEasing={animationEasing}

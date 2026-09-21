@@ -22,7 +22,12 @@ function BestWorstTile({ label, point, format, positiveIsGood }) {
 // panels rather than trying to force one combined number that doesn't exist.
 function SeriesStatsBlock({ block, goalDirection }) {
   const format = block.format;
-  const lowerIsBetter = goalDirection === "lower";
+  // A block carries its OWN direction when a metric's series don't all
+  // point the same way (e.g. Pre-orders/Backorders — more pre-order demand
+  // is good, more backorder is bad); falls back to the metric-level prop
+  // for every other metric, where all blocks share one direction.
+  const effectiveDirection = block.goalDirection ?? goalDirection;
+  const lowerIsBetter = effectiveDirection === "lower";
   const latestMA = block.movingAverage?.[block.movingAverage.length - 1] ?? null;
 
   return (

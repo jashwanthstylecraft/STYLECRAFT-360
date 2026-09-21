@@ -34,9 +34,14 @@ function BarRow({ label, value, max, colorClass, format, delay, reduceMotion }) 
 }
 
 function YtdBlock({ block, reduceMotion }) {
-  const { label, format, ytdResult, ytdGoal } = block;
+  const { label, format, goalDirection, goalLabel, ytdResult, ytdGoal } = block;
   const max = Math.max(Math.abs(ytdResult), Math.abs(ytdGoal));
   const attainmentPct = ytdGoal !== 0 ? (ytdResult / ytdGoal) * 100 : null;
+  // Same reflection AttainmentPill already uses for the latest-week
+  // number: for a "lower is better" metric, going OVER the goal is the
+  // miss, not the win, so the raw ratio alone reads backwards without this
+  // — 140% of budget must read as bad, not as "140%, more must be good."
+  const isGood = attainmentPct === null ? null : goalDirection === "lower" ? attainmentPct <= 100 : attainmentPct >= 100;
 
   return (
     <div>
@@ -44,7 +49,7 @@ function YtdBlock({ block, reduceMotion }) {
       <div className="space-y-2">
         <BarRow label="Result" value={ytdResult} max={max} colorClass="bg-actual-strong" format={format} delay={0} reduceMotion={reduceMotion} />
         <BarRow
-          label="Goal"
+          label={goalLabel ?? "Goal"}
           value={ytdGoal}
           max={max}
           colorClass="bg-goal"
@@ -55,13 +60,13 @@ function YtdBlock({ block, reduceMotion }) {
       </div>
       {attainmentPct !== null && (
         <motion.div
-          className="mt-2 text-xs font-medium text-ink-secondary"
+          className={`mt-2 text-xs font-semibold ${isGood ? "text-positive" : "text-negative"}`}
           initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.3, delay: reduceMotion ? 0 : BAR_DURATION * 0.6 }}
         >
-          {formatPercent(attainmentPct)} of YTD goal
+          {formatPercent(attainmentPct)} of YTD {(goalLabel ?? "goal").toLowerCase()}
         </motion.div>
       )}
     </div>

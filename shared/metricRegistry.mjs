@@ -83,6 +83,11 @@ export const METRICS = [
     format: "currency",
     aggregationMethod: "sum",
     groupKeys: ["preorder", "backorder"],
+    // Each series has its OWN direction — more pre-order demand is good,
+    // more backorder is bad — which a single top-level goalDirection can't
+    // express. Parallel to groupKeys; read per-block wherever this metric's
+    // stats/best-worst/YTD are computed (see resolveSeries in detailStats.js).
+    groupGoalDirections: ["higher", "lower"],
     description: "Open pre-order demand vs. unfulfilled backorder value.",
   },
   {
@@ -113,6 +118,7 @@ export const METRICS = [
     department: "inventory",
     chartType: "paidUnpaidStacked",
     goalDirection: "lower",
+    goalLabel: "Budget",
     format: "currency",
     aggregationMethod: "last",
     stackKeys: ["paid", "unpaid"],
@@ -138,7 +144,12 @@ export const METRICS = [
     name: "Inventory Discrepancy",
     department: "inventory",
     chartType: "divergingBar",
-    goalDirection: "lower",
+    // Neither "higher" nor "lower" is right here — the real target is
+    // ZERO, and this is the one metric that can legitimately go negative
+    // (over-count) or positive (under-count). "nearest" means closest to
+    // the goal (0 if none is set) wins, on both sides — see bestWorstWeek
+    // and goalHit in server/services/detailStats.js.
+    goalDirection: "nearest",
     format: "currency",
     aggregationMethod: "last",
     yDomain: [-20000, 20000],
@@ -152,6 +163,7 @@ export const METRICS = [
     department: "finance",
     chartType: "bar",
     goalDirection: "lower",
+    goalLabel: "Budget",
     format: "currency",
     aggregationMethod: "last",
     description: "Total accounts receivable outstanding.",
@@ -190,6 +202,7 @@ export const METRICS = [
     department: "operations",
     chartType: "stacked",
     goalDirection: "higher",
+    format: "count",
     aggregationMethod: "sum",
     stackKeys: ["social", "klaviyo"],
     targetLine: 3500,
@@ -246,6 +259,7 @@ export const METRICS = [
     department: "operations",
     chartType: "bar",
     goalDirection: "lower",
+    goalLabel: "Budget",
     format: "currency",
     aggregationMethod: "sum",
     description: "Value of invoice errors and order shortages — ideally zero.",

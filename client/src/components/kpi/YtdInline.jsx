@@ -6,11 +6,14 @@ import { formatValue, formatPercent } from "../../utils/format";
 // (bg-actual-strong / bg-goal), just sized for a grid card instead of a
 // full-width panel.
 function YtdInlineBlock({ block }) {
-  const { label, format, ytdResult, ytdGoal } = block;
+  const { label, format, goalDirection, goalLabel, ytdResult, ytdGoal } = block;
   const max = Math.max(Math.abs(ytdResult), Math.abs(ytdGoal));
   const pct = max > 0 ? Math.min(100, (Math.abs(ytdResult) / max) * 100) : 0;
   const goalPct = max > 0 ? Math.min(100, (Math.abs(ytdGoal) / max) * 100) : 0;
   const attainmentPct = ytdGoal !== 0 ? (ytdResult / ytdGoal) * 100 : null;
+  // Same reflection AttainmentPill uses for the latest-week number — for a
+  // "lower is better" metric, going OVER the goal is the miss, not the win.
+  const isGood = attainmentPct === null ? null : goalDirection === "lower" ? attainmentPct <= 100 : attainmentPct >= 100;
 
   return (
     <div>
@@ -24,7 +27,7 @@ function YtdInlineBlock({ block }) {
           <div className="w-20 shrink-0 text-right text-xs font-bold tabular-nums text-ink">{formatValue(ytdResult, format)}</div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-10 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Goal</div>
+          <div className="w-10 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{goalLabel ?? "Goal"}</div>
           <div className="h-4 flex-1 overflow-hidden rounded-md bg-surface-hover">
             <div className="h-full rounded-md bg-goal" style={{ width: `${goalPct}%` }} />
           </div>
@@ -32,7 +35,9 @@ function YtdInlineBlock({ block }) {
         </div>
       </div>
       {attainmentPct !== null && (
-        <div className="mt-1.5 text-xs font-medium text-ink-secondary">{formatPercent(attainmentPct)} of YTD goal</div>
+        <div className={`mt-1.5 text-xs font-semibold ${isGood ? "text-positive" : "text-negative"}`}>
+          {formatPercent(attainmentPct)} of YTD {(goalLabel ?? "goal").toLowerCase()}
+        </div>
       )}
     </div>
   );
