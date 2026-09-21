@@ -176,6 +176,10 @@ export const METRICS = [
     format: "percent",
     aggregationMethod: "average",
     yDomain: [0.4, 0.65],
+    // Averaging a rate metric across the year is technically sound, but not
+    // wanted here — per explicit request, this metric never shows a YTD
+    // comparison (see buildYtdStats' showYtd check).
+    showYtd: false,
     description: "Gross margin for the week's shipped orders.",
   },
 
@@ -265,6 +269,9 @@ export const METRICS = [
     format: "percent",
     aggregationMethod: "average",
     yDomain: [0, 1.0],
+    // See weekly-gross-margin's showYtd comment — same reasoning, same
+    // explicit request.
+    showYtd: false,
     description: "Share of service tickets resolved by repair rather than replacement.",
   },
   {

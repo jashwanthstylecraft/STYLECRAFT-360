@@ -190,17 +190,39 @@ function buildDetailStats(metric, weeks, weekEndings) {
   }));
 }
 
+// A block's YTD goal: the real per-week goal series aggregated the same
+// way as the result, OR — when a metric has no real goal data but does
+// have a fixed weekly targetLine (e.g. New Social Follow/Subs' 3,500/week
+// target) — that targetLine used as a stand-in, scaled to match what the
+// result side actually aggregates: multiplied by the number of weeks that
+// have a real result for a "sum" metric (comparing like-for-like
+// accumulated totals), or used as-is for an "average" metric (the average
+// IS the weekly target, not a multiple of it). Metrics with neither a real
+// goal series nor a targetLine still correctly get `null` here.
+function ytdGoalFor(metric, series, goalSeries) {
+  if (goalSeries) return rangeAggregate(goalSeries, metric.aggregationMethod);
+  if (metric.targetLine === undefined || metric.targetLine === null) return null;
+  if (metric.aggregationMethod === "average") return metric.targetLine;
+  if (metric.aggregationMethod === "sum") {
+    const weeksWithResult = series.filter(isPresent).length;
+    return weeksWithResult > 0 ? metric.targetLine * weeksWithResult : null;
+  }
+  return null;
+}
+
 // Year-to-date Result vs. Goal, for the fullscreen comparison bar. Only
 // meaningful for metrics that are additive/averageable over time — a
 // "last"-aggregated snapshot (A/R Total, Inventory Level, ...) can't be
-// summed across a year — and only for series that actually have a real
-// per-week goal to compare against (resolveSeries already returns
-// `goalSeries: undefined` for groupKeys metrics, which use headerValues/
-// targetLine instead; a stackKeys metric with no goal column in the source
-// sheet just aggregates to `null`, filtered out below). Returns `null` when
-// nothing qualifies, so the client can skip rendering the bar entirely.
+// summed across a year — and for metrics explicitly opted out via
+// `showYtd: false` in the registry (a rate/percent metric where an average-
+// of-the-year comparison isn't wanted, even though the math itself would
+// be sound). Otherwise uses the real per-week goal series where one
+// exists, or falls back to a targetLine-derived one (see ytdGoalFor).
+// Returns `null` when nothing qualifies, so the client can skip rendering
+// the bar entirely.
 function buildYtdStats(metric) {
   if (metric.aggregationMethod === "last") return null;
+  if (metric.showYtd === false) return null;
 
   const blocks = resolveSeries(metric)
     .map(({ key, label, format, series, goalSeries }) => ({
@@ -208,7 +230,7 @@ function buildYtdStats(metric) {
       label,
       format,
       ytdResult: rangeAggregate(series, metric.aggregationMethod),
-      ytdGoal: goalSeries ? rangeAggregate(goalSeries, metric.aggregationMethod) : null,
+      ytdGoal: ytdGoalFor(metric, series, goalSeries),
     }))
     .filter((b) => isPresent(b.ytdResult) && isPresent(b.ytdGoal));
 

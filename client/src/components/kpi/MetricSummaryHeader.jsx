@@ -24,9 +24,14 @@ function GroupedHeader({ name, preorderTotal, backorderTotal, preorderWowDeltaPc
           </div>
         </div>
       </div>
+      {/* Arrow points in the metric's LITERAL direction (up = increased),
+          never flipped to track good/bad — an increasing Backorder total
+          showing a down-arrow just because a rise is undesirable reads as
+          "backorders went down," which is the opposite of what happened.
+          Color still conveys good/bad via positiveIsGood. */}
       <div className="mt-2.5 flex items-center justify-center gap-3">
-        <TrendArrow deltaPct={preorderWowDeltaPct} arrowMeansGood />
-        <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} arrowMeansGood />
+        <TrendArrow deltaPct={preorderWowDeltaPct} />
+        <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} />
       </div>
     </div>
   );
