@@ -22,6 +22,7 @@ const detailRouter = require("./routes/detail");
 const exportRouter = require("./routes/export");
 const authRouter = require("./routes/auth");
 const usersRouter = require("./routes/users");
+const cronRouter = require("./routes/cron");
 const { requireAuth, requireRole } = require("./middleware/auth");
 const repository = require("./data/repository");
 const customMetrics = require("./data/customMetrics");
@@ -43,6 +44,10 @@ app.get("/api/health", (req, res) => {
 
 // Must be reachable before requireAuth — this IS the login flow.
 app.use("/api/auth", authRouter);
+
+// Vercel Cron has no session cookie — guards itself with CRON_SECRET
+// instead (see routes/cron.js), so it also has to sit before requireAuth.
+app.use("/api/cron", cronRouter);
 
 app.use(requireAuth);
 

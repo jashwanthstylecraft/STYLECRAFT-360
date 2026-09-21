@@ -1,13 +1,16 @@
-// Sends the weekly dashboard-overview email. Run manually for now
-// (`node scripts/send-weekly-report.js`); wiring this to an actual weekly
-// schedule (Vercel Cron once the account is unpaused, or another trigger)
-// is a separate, later step.
+// Sends the weekly dashboard-overview email — the same report the
+// "/api/cron/weekly-report" route (routes/cron.js) sends automatically
+// every Saturday via Vercel Cron. This script is for a manual/on-demand
+// send (`node scripts/send-weekly-report.js`), e.g. to test changes to the
+// report before the next scheduled run.
 //
 // Configuration is entirely via env vars (server/.env locally, Vercel
 // project env vars in production) — nothing here is hardcoded:
 //   GMAIL_USER            — the sending mailbox (needs 2-Step Verification on)
 //   GMAIL_APP_PASSWORD    — an App Password generated for that mailbox
-//   REPORT_RECIPIENTS     — comma-separated recipient list
+//   REPORT_RECIPIENTS     — comma-separated recipient list; defaults to the
+//                           login allowlist (data/allowedEmails.js) if unset,
+//                           same as the automated Saturday send
 //   REPORT_METRIC_SLUGS   — comma-separated metric slugs to include
 //                           (falls back to a small default set if unset)
 try {
@@ -21,6 +24,7 @@ const repository = require("../data/repository");
 const customMetrics = require("../data/customMetrics");
 const metricNameOverrides = require("../data/metricNameOverrides");
 const hiddenMetrics = require("../data/hiddenMetrics");
+const { ALLOWED_EMAILS } = require("../data/allowedEmails");
 const { buildWeeklyReport } = require("../services/weeklyReportService");
 const { sendMail } = require("../services/emailService");
 
@@ -48,14 +52,11 @@ async function main() {
     hiddenMetrics.ensureFreshHiddenMetrics(),
   ]);
 
-  const recipients = (process.env.REPORT_RECIPIENTS || "")
+  const envRecipients = (process.env.REPORT_RECIPIENTS || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (recipients.length === 0) {
-    console.error("REPORT_RECIPIENTS is not set — add a comma-separated recipient list to server/.env.");
-    process.exit(1);
-  }
+  const recipients = envRecipients.length ? envRecipients : ALLOWED_EMAILS;
 
   const slugs = (process.env.REPORT_METRIC_SLUGS || "")
     .split(",")

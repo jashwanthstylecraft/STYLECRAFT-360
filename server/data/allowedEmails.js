@@ -25,4 +25,4 @@ function isAllowedEmail(email) {
   return ALLOWED_EMAILS.includes(String(email ?? "").trim().toLowerCase());
 }
 
-module.exports = { isAllowedEmail };
+module.exports = { isAllowedEmail, ALLOWED_EMAILS };
