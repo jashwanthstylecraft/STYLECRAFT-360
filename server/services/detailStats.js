@@ -336,10 +336,17 @@ function rollingRoc(series) {
 }
 
 function buildRocSeries(metric) {
-  const blocks = resolveSeries(metric).map(({ key, label, series }) => ({
+  const blocks = resolveSeries(metric).map(({ key, label, series, goalDirection }) => ({
     key,
     label,
-    values: rollingRoc(series),
+    // A "nearest to target" series (e.g. Inventory Discrepancy) is signed —
+    // 13 weeks of positive/negative values routinely sum to something near
+    // zero, and dividing by a near-zero prior-year base turns ordinary
+    // week-to-week noise into a huge, meaningless swing (seen in practice:
+    // a -$5,000 prior-year base producing a "280%" reading). ROC as a
+    // %-change-of-a-sum has no sound meaning for this kind of series, so it
+    // deliberately reports no values rather than a misleading one.
+    values: goalDirection === "nearest" ? series.map(() => null) : rollingRoc(series),
   }));
 
   const hasAny = blocks.some((b) => b.values.some((v) => v !== null));
