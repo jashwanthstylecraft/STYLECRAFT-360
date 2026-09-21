@@ -34,13 +34,15 @@ function currentYearRange() {
   return { from: yearWeeks[0].weekEnding, to };
 }
 
-// The chart's ROC overlay is a rolling 13-week (3-month) % change LINE,
-// one value per week shown — not a single point-in-time number — so every
-// week actually on screen needs a real value 13 weeks before ITSELF, not
-// just before the latest week. Anchored to `raw`'s own displayed window
-// (not "latest data week" like currentYearRange) since the overlay must
-// align 1:1 with whatever weeks the chart is already showing.
-const ROC_ROLLING_WEEKS = 13;
+// The chart's ROC overlay is a rolling trailing-13-week-sum, year-over-
+// year % change LINE, one value per week shown — not a single point-in-
+// time number — so every week actually on screen needs 13+52=65 real
+// weeks of history before ITSELF, not just before the latest week (see
+// buildRocSeries in detailStats.js for the verified formula). Anchored to
+// `raw`'s own displayed window (not "latest data week" like
+// currentYearRange) since the overlay must align 1:1 with whatever weeks
+// the chart is already showing.
+const ROC_LOOKBACK_WEEKS = 13 + 52;
 
 function rocSeriesWindow(raw) {
   const firstShown = raw.weekEndings?.[0];
@@ -49,7 +51,7 @@ function rocSeriesWindow(raw) {
   const allWeeks = sharedRegistry.generateWeeks();
   const firstIndex = allWeeks.findIndex((w) => w.weekEnding === firstShown);
   if (firstIndex === -1) return null;
-  const fromIndex = Math.max(0, firstIndex - ROC_ROLLING_WEEKS);
+  const fromIndex = Math.max(0, firstIndex - ROC_LOOKBACK_WEEKS);
   return { from: allWeeks[fromIndex].weekEnding, to: lastShown };
 }
 
@@ -124,14 +126,18 @@ function getMetricDetail(department, slug, period, range) {
 
   const rocWindow = rocSeriesWindow(raw);
   const rocWideMetric = rocWindow ? getMetrics("weekly", rocWindow).metrics.find((m) => m.slug === slug) : null;
-  const rocWide = rocWideMetric ? buildRocSeries(rocWideMetric, ROC_ROLLING_WEEKS) : null;
+  const rocWide = rocWideMetric ? buildRocSeries(rocWideMetric) : null;
   // Trim back down to exactly the weeks `raw` (and so the chart) shows —
-  // rocWide's series started ROC_ROLLING_WEEKS earlier purely so the FIRST
-  // displayed week could still look back a full 13 weeks; always slicing
-  // from the end keeps this correct even when history runs out and the
-  // window gets clamped to fewer extra weeks than requested.
+  // rocWide's series started ROC_LOOKBACK_WEEKS earlier purely so the FIRST
+  // displayed week could still look back a full 13-week window a year prior;
+  // always slicing from the end keeps this correct even when history runs
+  // out and the window gets clamped to fewer extra weeks than requested.
   const roc = rocWide
-    ? { weeksBack: rocWide.weeksBack, blocks: rocWide.blocks.map((b) => ({ ...b, values: b.values.slice(-raw.weeks.length) })) }
+    ? {
+        windowWeeks: rocWide.windowWeeks,
+        yoyWeeks: rocWide.yoyWeeks,
+        blocks: rocWide.blocks.map((b) => ({ ...b, values: b.values.slice(-raw.weeks.length) })),
+      }
     : null;
 
   const departmentMetrics = sharedRegistry.getDepartmentMetrics(department);

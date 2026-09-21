@@ -81,8 +81,8 @@ function RocToggleButton({ active, onClick, className = "" }) {
       className={`rounded-lg border p-2 shadow-sm transition-colors ${
         active ? "border-roc bg-roc/10 text-roc" : "border-surface-border bg-surface-card text-ink-secondary hover:bg-surface-hover"
       } ${className}`}
-      aria-label="Toggle 13-week rolling Rate of Change overlay"
-      title="13-week rolling Rate of Change overlay"
+      aria-label="Toggle year-over-year Rate of Change overlay"
+      title="Year-over-year Rate of Change overlay (trailing 13-week total vs. the same 13 weeks last year)"
     >
       <TrendingUp size={16} />
     </button>

@@ -90,10 +90,10 @@ export default function WeeklyBarChart({
   const COLORS = useChartColors();
   const percentTicks = valueFormat === "percent" ? computePercentTicks(yDomain) : undefined;
   const resolvedDomain = percentTicks ? [percentTicks[0], percentTicks[percentTicks.length - 1]] : yDomain;
-  // Rolling 13-week % change, on its own right-side axis since it's always
-  // a percent regardless of the primary series' own units — an opt-in
-  // overlay (see HeroChart's toggle in MetricDetail.jsx), not shown unless
-  // the caller actually passes real values.
+  // Trailing-13-week-total, year-over-year % change, on its own right-side
+  // axis since it's always a percent regardless of the primary series' own
+  // units — an opt-in overlay (see HeroChart's toggle in MetricDetail.jsx),
+  // not shown unless the caller actually passes real values.
   const showRoc = Array.isArray(rocValues) && rocValues.some((v) => v !== null && v !== undefined);
   const data = weeks.map((week, i) => ({
     week,
@@ -165,7 +165,7 @@ export default function WeeklyBarChart({
                 // formatRowValue's "percent" case expects a fraction (it
                 // multiplies by 100 itself) — point.roc is already a whole
                 // percent number, so divide back down once here.
-                rows.push({ key: "roc", label: "13-Wk ROC", value: point.roc / 100, valueFormat: "percent", color: COLORS.roc, shape: "line" });
+                rows.push({ key: "roc", label: "ROC (YoY)", value: point.roc / 100, valueFormat: "percent", color: COLORS.roc, shape: "line" });
               }
               return (
                 <ChartTooltip
