@@ -47,10 +47,14 @@ export default function PaidUnpaidStackedChart({
   height = 196,
   labelThinThreshold,
   showBrush = false,
+  rocValues,
 }) {
   const COLORS = useChartColors();
   const UnpaidBarShape = makeUnpaidBarShape(COLORS);
   const [paidKey, unpaidKey] = stackKeys;
+  // Trailing-13-week-total, year-over-year % change of the COMBINED total —
+  // see WeeklyBarChart's identical overlay for the verified formula.
+  const showRoc = Array.isArray(rocValues) && rocValues.some((v) => v !== null && v !== undefined);
 
   const data = weeks.map((week, i) => {
     const point = series[i];
@@ -62,6 +66,7 @@ export default function PaidUnpaidStackedChart({
       [unpaidKey]: unpaidValue,
       combined: paidValue === null && unpaidValue === null ? null : (paidValue ?? 0) + (unpaidValue ?? 0),
       goal: goalSeries?.[i] ?? null,
+      roc: showRoc ? rocValues[i] ?? null : undefined,
     };
   });
 
@@ -95,6 +100,17 @@ export default function PaidUnpaidStackedChart({
             axisLine={false}
             width={52}
           />
+          {showRoc && (
+            <YAxis
+              yAxisId="roc"
+              orientation="right"
+              tick={{ fontSize: 11, fill: COLORS.roc }}
+              tickFormatter={(v) => `${v.toFixed(0)}%`}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+          )}
           <Tooltip
             cursor={{ fill: "rgba(15, 23, 42, 0.04)" }}
             content={({ active, label, payload }) => {
@@ -113,6 +129,9 @@ export default function PaidUnpaidStackedChart({
                   color: point.combined <= point.goal ? COLORS.positive : COLORS.negative,
                   shape: "rect",
                 });
+              }
+              if (showRoc && point.roc !== null && point.roc !== undefined) {
+                rows.push({ key: "roc", label: "ROC (YoY)", value: point.roc / 100, valueFormat: "percent", color: COLORS.roc, shape: "line" });
               }
               return <ChartTooltip active={active} label={label} rows={rows} />;
             }}
@@ -144,6 +163,21 @@ export default function PaidUnpaidStackedChart({
             dot={false}
             activeDot={{ r: 4, fill: COLORS.goal, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
           />
+          {showRoc && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey="roc"
+              stroke={COLORS.roc}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: COLORS.roc, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
+          )}
           {showBrush && (
             <Brush dataKey="week" height={22} stroke={COLORS.actual} fill={COLORS.surfaceCard} travellerWidth={8} />
           )}

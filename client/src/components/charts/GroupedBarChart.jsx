@@ -1,4 +1,4 @@
-import { BarChart, Bar, Brush, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { ComposedChart, Bar, Line, Brush, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ChartTooltip from "./ChartTooltip";
 import { formatCurrencyCompact } from "../../utils/format";
 import { useChartColors } from "../../utils/theme";
@@ -14,20 +14,31 @@ export default function GroupedBarChart({
   height = 196,
   labelThinThreshold,
   showBrush = false,
+  rocByKey,
 }) {
   const COLORS = useChartColors();
   const [firstKey, secondKey] = groupKeys;
+  const firstRoc = rocByKey?.[firstKey];
+  const secondRoc = rocByKey?.[secondKey];
+  // Trailing-13-week-total, year-over-year % change — one ROC line per
+  // named series (see WeeklyBarChart's identical overlay for the verified
+  // formula), since a grouped chart has no single combined "actual" line.
+  const showRoc =
+    (Array.isArray(firstRoc) && firstRoc.some((v) => v !== null && v !== undefined)) ||
+    (Array.isArray(secondRoc) && secondRoc.some((v) => v !== null && v !== undefined));
 
   const data = weeks.map((week, i) => ({
     week,
     [firstKey]: series[i]?.[firstKey] ?? null,
     [secondKey]: series[i]?.[secondKey] ?? null,
+    [`${firstKey}Roc`]: showRoc ? firstRoc?.[i] ?? null : undefined,
+    [`${secondKey}Roc`]: showRoc ? secondRoc?.[i] ?? null : undefined,
   }));
 
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
+        <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
           <CartesianGrid vertical={false} stroke={COLORS.gridline} />
           <XAxis
             dataKey="week"
@@ -46,6 +57,17 @@ export default function GroupedBarChart({
             axisLine={false}
             width={52}
           />
+          {showRoc && (
+            <YAxis
+              yAxisId="roc"
+              orientation="right"
+              tick={{ fontSize: 11, fill: COLORS.roc }}
+              tickFormatter={(v) => `${v.toFixed(0)}%`}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+          )}
           <Tooltip
             cursor={{ fill: "rgba(15, 23, 42, 0.04)" }}
             content={({ active, label, payload }) => {
@@ -55,6 +77,14 @@ export default function GroupedBarChart({
                 { key: firstKey, label: "Pre-orders", value: point[firstKey], color: COLORS.actual, shape: "rect" },
                 { key: secondKey, label: "Backorders", value: point[secondKey], color: COLORS.goal, shape: "rect" },
               ];
+              const firstRocVal = point[`${firstKey}Roc`];
+              const secondRocVal = point[`${secondKey}Roc`];
+              if (showRoc && firstRocVal !== null && firstRocVal !== undefined) {
+                rows.push({ key: `${firstKey}Roc`, label: "Pre-orders ROC (YoY)", value: firstRocVal / 100, valueFormat: "percent", color: COLORS.actual, shape: "line" });
+              }
+              if (showRoc && secondRocVal !== null && secondRocVal !== undefined) {
+                rows.push({ key: `${secondKey}Roc`, label: "Backorders ROC (YoY)", value: secondRocVal / 100, valueFormat: "percent", color: COLORS.goal, shape: "line" });
+              }
               return <ChartTooltip active={active} label={label} rows={rows} />;
             }}
           />
@@ -76,10 +106,40 @@ export default function GroupedBarChart({
             animationDuration={animationDuration}
             animationEasing={animationEasing}
           />
+          {showRoc && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey={`${firstKey}Roc`}
+              stroke={COLORS.actual}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: COLORS.actual, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
+          )}
+          {showRoc && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey={`${secondKey}Roc`}
+              stroke={COLORS.goal}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: COLORS.goal, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
+          )}
           {showBrush && (
             <Brush dataKey="week" height={22} stroke={COLORS.actual} fill={COLORS.surfaceCard} travellerWidth={8} />
           )}
-        </BarChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

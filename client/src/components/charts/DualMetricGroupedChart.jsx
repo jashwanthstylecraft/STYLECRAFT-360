@@ -1,4 +1,4 @@
-import { BarChart, Bar, ReferenceLine, Brush, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { ComposedChart, Bar, Line, ReferenceLine, Brush, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ChartTooltip from "./ChartTooltip";
 import ChartLegend from "./ChartLegend";
 import { formatValue } from "../../utils/format";
@@ -48,17 +48,28 @@ export default function DualMetricGroupedChart({
   labelThinThreshold,
   showBrush = false,
   showLegend = true,
+  rocByKey,
 }) {
   const COLORS = useChartColors();
   const resolvedColors = colors ?? [COLORS.actual, COLORS.goal];
   const [firstKey, secondKey] = groupKeys;
   const [firstLabel, secondLabel] = labels;
   const [firstColor, secondColor] = resolvedColors;
+  const firstRoc = rocByKey?.[firstKey];
+  const secondRoc = rocByKey?.[secondKey];
+  // Trailing-13-week-total, year-over-year % change — one ROC line per
+  // named series (see WeeklyBarChart's identical overlay for the verified
+  // formula), since this chart has no single combined "actual" line.
+  const showRoc =
+    (Array.isArray(firstRoc) && firstRoc.some((v) => v !== null && v !== undefined)) ||
+    (Array.isArray(secondRoc) && secondRoc.some((v) => v !== null && v !== undefined));
 
   const data = weeks.map((week, i) => ({
     week,
     [firstKey]: series[i]?.[firstKey] ?? null,
     [secondKey]: series[i]?.[secondKey] ?? null,
+    [`${firstKey}Roc`]: showRoc ? firstRoc?.[i] ?? null : undefined,
+    [`${secondKey}Roc`]: showRoc ? secondRoc?.[i] ?? null : undefined,
   }));
 
   const dataMax = data.reduce((max, d) => Math.max(max, d[firstKey] ?? 0, d[secondKey] ?? 0), 0);
@@ -67,7 +78,7 @@ export default function DualMetricGroupedChart({
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart
+        <ComposedChart
           data={data}
           margin={compact ? { top: 4, right: 2, left: 2, bottom: 0 } : { top: 8, right: 8, left: 0, bottom: 0 }}
           barGap={2}
@@ -94,6 +105,17 @@ export default function DualMetricGroupedChart({
             width={52}
             hide={compact}
           />
+          {showRoc && !compact && (
+            <YAxis
+              yAxisId="roc"
+              orientation="right"
+              tick={{ fontSize: 11, fill: COLORS.roc }}
+              tickFormatter={(v) => `${v.toFixed(0)}%`}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+          )}
           {targetLine !== undefined && (
             <ReferenceLine y={targetLine} stroke={COLORS.goal} strokeWidth={2} strokeDasharray="5 4" />
           )}
@@ -109,6 +131,14 @@ export default function DualMetricGroupedChart({
                 ];
                 if (targetLine !== undefined) {
                   rows.push({ key: "target", label: "Target", value: targetLine, color: COLORS.goal, shape: "line" });
+                }
+                const firstRocVal = point[`${firstKey}Roc`];
+                const secondRocVal = point[`${secondKey}Roc`];
+                if (showRoc && firstRocVal !== null && firstRocVal !== undefined) {
+                  rows.push({ key: `${firstKey}Roc`, label: `${firstLabel} ROC (YoY)`, value: firstRocVal / 100, valueFormat: "percent", color: firstColor, shape: "line" });
+                }
+                if (showRoc && secondRocVal !== null && secondRocVal !== undefined) {
+                  rows.push({ key: `${secondKey}Roc`, label: `${secondLabel} ROC (YoY)`, value: secondRocVal / 100, valueFormat: "percent", color: secondColor, shape: "line" });
                 }
                 return <ChartTooltip active={active} label={label} rows={rows} valueFormat={valueFormat} />;
               }}
@@ -134,10 +164,40 @@ export default function DualMetricGroupedChart({
             animationEasing={animationEasing}
             animationBegin={animationBeginSecond ?? 0}
           />
+          {showRoc && !compact && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey={`${firstKey}Roc`}
+              stroke={firstColor}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: firstColor, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
+          )}
+          {showRoc && !compact && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey={`${secondKey}Roc`}
+              stroke={secondColor}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: secondColor, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
+          )}
           {showBrush && (
             <Brush dataKey="week" height={22} stroke={firstColor} fill={COLORS.surfaceCard} travellerWidth={8} />
           )}
-        </BarChart>
+        </ComposedChart>
       </ResponsiveContainer>
       {!compact && showLegend && (
         <ChartLegend

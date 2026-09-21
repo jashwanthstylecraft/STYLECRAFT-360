@@ -87,6 +87,7 @@ export default function StackedBarChart({
   showBrush = false,
   showLegend = true,
   showSegmentLabels = true,
+  rocValues,
 }) {
   const COLORS = useChartColors();
   const resolvedColors = colors ?? [COLORS.actual, COLORS.gammaPlus];
@@ -95,6 +96,10 @@ export default function StackedBarChart({
   const [baseLabel, topLabel] = labels;
   const [baseColor, topColor] = resolvedColors;
   const SegmentLabel = makeSegmentLabel(valueFormat);
+  // Trailing-13-week-total, year-over-year % change of the COMBINED
+  // (stacked) total — see WeeklyBarChart's identical overlay for the
+  // verified formula. Opt-in, same pattern as the plain bar chart.
+  const showRoc = Array.isArray(rocValues) && rocValues.some((v) => v !== null && v !== undefined);
 
   const data = weeks.map((week, i) => {
     const point = series[i];
@@ -106,6 +111,7 @@ export default function StackedBarChart({
       [topKey]: topValue,
       combined: baseValue === null && topValue === null ? null : (baseValue ?? 0) + (topValue ?? 0),
       goal: goalSeries?.[i] ?? null,
+      roc: showRoc ? rocValues[i] ?? null : undefined,
     };
   });
 
@@ -146,6 +152,17 @@ export default function StackedBarChart({
             axisLine={false}
             width={52}
           />
+          {showRoc && (
+            <YAxis
+              yAxisId="roc"
+              orientation="right"
+              tick={{ fontSize: 11, fill: COLORS.roc }}
+              tickFormatter={(v) => `${v.toFixed(0)}%`}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+          )}
           <Tooltip
             cursor={{ fill: "rgba(15, 23, 42, 0.04)" }}
             content={({ active, label, payload }) => {
@@ -165,6 +182,9 @@ export default function StackedBarChart({
                   color: point.combined >= goalValue ? COLORS.positive : COLORS.negative,
                   shape: "rect",
                 });
+              }
+              if (showRoc && point.roc !== null && point.roc !== undefined) {
+                rows.push({ key: "roc", label: "ROC (YoY)", value: point.roc / 100, valueFormat: "percent", color: COLORS.roc, shape: "line" });
               }
               return <ChartTooltip active={active} label={label} rows={rows} valueFormat={valueFormat} />;
             }}
@@ -209,6 +229,21 @@ export default function StackedBarChart({
           )}
           {!goalSeries && targetLine !== undefined && (
             <ReferenceLine y={targetLine} stroke={resolvedGoalLineColor} strokeWidth={2} strokeDasharray="5 4" />
+          )}
+          {showRoc && (
+            <Line
+              yAxisId="roc"
+              type="monotone"
+              dataKey="roc"
+              stroke={COLORS.roc}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3, fill: COLORS.roc, stroke: COLORS.surfaceCard, strokeWidth: 2 }}
+              connectNulls={false}
+              isAnimationActive={isAnimationActive}
+              animationDuration={animationDuration}
+              animationEasing={animationEasing}
+            />
           )}
           {showBrush && (
             <Brush dataKey="week" height={22} stroke={baseColor} fill={COLORS.surfaceCard} travellerWidth={8} />

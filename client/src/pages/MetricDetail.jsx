@@ -103,17 +103,22 @@ function HeroChart({ metric, weeks, departmentKey, reduceMotion, ytdBlocks, rocS
     return () => window.removeEventListener("keydown", onKey);
   }, [fullscreen]);
 
-  // The overlay only ever targets the plain Result/Goal bar chart — a
-  // metric with more than one series of its own (stacked/grouped/dual)
-  // has no single "actual" line to layer a second axis onto cleanly.
-  const canShowRoc = metric.chartType === "bar" && Boolean(rocSeries?.blocks?.[0]?.values?.some((v) => v !== null));
+  // Every chart type gets the same trailing-13-week, year-over-year ROC
+  // overlay now — single-series charts (bar/percentBar/divergingBar/
+  // stacked/paidUnpaidStacked) get one line via `rocValues`; a metric with
+  // more than one named series of its own (grouped/dualGrouped) gets one
+  // ROC line per series via `rocByKey`, keyed the same way `series[i]` is.
+  const isMultiSeries = metric.chartType === "grouped" || metric.chartType === "dualGrouped";
+  const canShowRoc = Boolean(rocSeries?.blocks?.some((b) => b.values?.some((v) => v !== null)));
 
   const chartAnim = chartMotionProps(departmentKey, reduceMotion);
+  const rocActive = showRoc && canShowRoc;
   const heroProps = {
     height: boxHeight || 400,
     showBrush: true,
     labelThinThreshold: HERO_LABEL_THIN_THRESHOLD,
-    rocValues: showRoc && canShowRoc ? rocSeries.blocks[0].values : undefined,
+    rocValues: rocActive && !isMultiSeries ? rocSeries.blocks[0].values : undefined,
+    rocByKey: rocActive && isMultiSeries ? Object.fromEntries(rocSeries.blocks.map((b) => [b.key, b.values])) : undefined,
   };
 
   const chartBlock = <MetricChart metric={metric} weeks={weeks} chartAnim={chartAnim} heroProps={heroProps} />;
