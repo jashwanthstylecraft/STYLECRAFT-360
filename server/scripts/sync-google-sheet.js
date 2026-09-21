@@ -22,11 +22,9 @@ const SIMPLE_METRICS = [
   { slug: "us-b2b-invoiced", valueCol: 2, goalCol: 3 },
   { slug: "ecommerce-ex-website", valueCol: 4, goalCol: 5 },
   { slug: "johnny-b-b2c", valueCol: 6, goalCol: 7 },
-  // col 8/9 (Website Sales) intentionally excluded — the sheet's value
-  // there is consistently a small number ($15-45) across every week,
-  // nowhere near a plausible dollar figure for real stylecraft/gammaPlus
-  // sub-totals (which run in the tens of thousands) — unreliable, never
-  // synced; always left for manual entry.
+  // col 8/9 (Website Sales) is NOT a plain currency column — see
+  // SCALED_SUBKEY_METRICS below, where it's mapped with a x1000 scale
+  // factor instead.
   { slug: "inventory-level", valueCol: 10, goalCol: 11 },
   // col 12/13 (OPEN Factory P.O.s) intentionally excluded — the sheet only
   // gives a combined total, but the app needs a paid/unpaid split with no
@@ -55,6 +53,15 @@ const MULTI_METRICS = [
   { slug: "in-stock-percentage", subKeys: ["orderFill", "skuAvail"], cols: [44, 45] },
   { slug: "preorders-backorders", subKeys: ["preorder", "backorder"], cols: [38, 39] },
 ];
+
+// Metrics where the sheet stores just ONE of a multi-value metric's
+// sub-keys, scaled by a fixed factor rather than as a plain dollar figure.
+// Website Sales' "stylecraft" web-store total is the one confirmed case:
+// the sheet consistently stores it in THOUSANDS ("23" means $23,000), not
+// raw dollars — verified against two manually-entered weeks (Sep-11:
+// sheet "23" == real $23,000; Sep-18: sheet "28" == real $28,000). No
+// column exists for gammaPlus at all — never written, same as before.
+const SCALED_SUBKEY_METRICS = [{ slug: "website-sales", subKey: "stylecraft", col: 8, scale: 1000 }];
 
 // Never write goals via the sync — goals are almost always pre-filled
 // weeks/months ahead of time by hand, and re-deriving them from the sheet
@@ -95,6 +102,15 @@ function buildEntries(cells) {
     }
     if (v1 !== null) entries[`${m.slug}.${m.subKeys[0]}`] = { value: v1 };
     if (v2 !== null) entries[`${m.slug}.${m.subKeys[1]}`] = { value: v2 };
+  }
+
+  for (const m of SCALED_SUBKEY_METRICS) {
+    const raw = parseNumber(cells[m.col]);
+    if (raw === null) {
+      skipped.push(`${m.slug}.${m.subKey}`);
+      continue;
+    }
+    entries[`${m.slug}.${m.subKey}`] = { value: raw * m.scale };
   }
 
   return { entries, skipped };
@@ -217,7 +233,7 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 }
 
-module.exports = { parseSheetExport, buildEntries, resolveWeekEnding, planSync, SIMPLE_METRICS, MULTI_METRICS };
+module.exports = { parseSheetExport, buildEntries, resolveWeekEnding, planSync, SIMPLE_METRICS, MULTI_METRICS, SCALED_SUBKEY_METRICS };
 
 if (require.main === module) {
   main().catch((err) => {

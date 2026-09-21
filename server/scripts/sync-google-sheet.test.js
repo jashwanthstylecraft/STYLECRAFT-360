@@ -66,14 +66,21 @@ describe("buildEntries", () => {
     expect(entries["preorders-backorders.preorder"]).toEqual({ value: 595000 });
     expect(entries["preorders-backorders.backorder"]).toEqual({ value: 606000 });
 
+    // Website Sales' "stylecraft" sub-value: the sheet stores this one in
+    // THOUSANDS ("23" means $23,000), confirmed against real already-
+    // entered weeks — see SCALED_SUBKEY_METRICS' comment. The fixture cell
+    // is "23", so the entry should come out scaled to 23000.
+    expect(entries["website-sales.stylecraft"]).toEqual({ value: 23000 });
+    // gammaPlus has no source column at all — never written.
+    expect(entries["website-sales.gammaPlus"]).toBeUndefined();
+
     // The fixture's Repair Rate cell is genuinely blank for this week
     // (preserved from the real sheet) — must be skipped, never guessed or
     // defaulted to 0.
     expect(entries["repair-rate"]).toBeUndefined();
     expect(skipped).toContain("repair-rate");
 
-    // Never mapped, by design — see the comments in sync-google-sheet.js.
-    expect(entries["website-sales"]).toBeUndefined();
+    // Never mapped at all, by design — see the comments in sync-google-sheet.js.
     expect(entries["open-factory-pos"]).toBeUndefined();
   });
 
