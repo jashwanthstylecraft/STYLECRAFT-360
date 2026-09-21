@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import stylecraftLogo from "../assets/stylecraft-logo.png";
 
 export default function Login() {
   const { login, loginWithEmail } = useAuth();
@@ -46,11 +47,26 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-surface-border bg-surface-card p-6 shadow-sm">
-        <div className="mb-6 text-center leading-tight">
-          <div className="text-sm font-extrabold tracking-wide text-heading">STYLECRAFT</div>
-          <div className="text-xs font-semibold tracking-widest text-actual">360</div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy p-4">
+      {/* Calm, fixed brand backdrop — same in light/dark, since this page is
+          the one place a deliberate look matters more than theme-matched
+          neutrals. A smooth navy-to-blue gradient with one soft glow behind
+          the card, no busy color blobs. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-navy via-[#0f2f5c] to-actual-strong" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3b82f6]/25 blur-3xl" />
+
+      <div className="relative flex w-full max-w-sm flex-col items-center">
+        {/* The real brand logo is white-on-transparent, so it lives out here
+            on the navy backdrop, not inside the (light) card below, where it
+            would be invisible. */}
+        <img src={stylecraftLogo} alt="StyleCraft" className="mb-6 w-56 drop-shadow-md" />
+
+        <div className="w-full rounded-2xl border border-white/10 bg-surface-card p-6 shadow-2xl">
+          <div className="mb-6 text-center leading-tight">
+            <div className="text-sm font-extrabold tracking-wide text-heading">STYLECRAFT</div>
+            <div className="text-xs font-semibold tracking-widest text-actual">360</div>
+          <div className="mt-3 text-lg font-bold text-heading">Welcome, Directors</div>
+          <p className="mt-1 text-xs text-ink-muted">Director-level access to the StyleCraft 360 dashboard.</p>
         </div>
 
         {!showAdminForm ? (
@@ -88,7 +104,7 @@ export default function Login() {
             </button>
 
             <p className="text-center text-xs text-ink-muted">
-              Only approved StyleCraft emails can access this dashboard.
+              Reserved for StyleCraft's directors — only approved emails can get in.
             </p>
           </form>
         ) : (
@@ -148,8 +164,9 @@ export default function Login() {
           }}
           className="mt-4 w-full text-center text-xs font-medium text-ink-muted underline-offset-2 hover:text-actual hover:underline"
         >
-          {showAdminForm ? "Back to email sign-in" : "Admin sign-in"}
-        </button>
+            {showAdminForm ? "Back to email sign-in" : "Admin sign-in"}
+          </button>
+        </div>
       </div>
     </div>
   );
