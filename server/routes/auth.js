@@ -1,4 +1,6 @@
 const express = require("express");
+const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 const userService = require("../services/userService");
 const { isAllowedEmail } = require("../data/allowedEmails");
 const { requireAuth, setSessionCookie, clearSessionCookie } = require("../middleware/auth");
@@ -17,13 +19,9 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// A whole shared password (the old guest account) let anyone in — this
-// checks the typed email against a fixed staff allowlist instead. No
-// password: whoever holds that email address's convenience is worth more
-// here than proving ownership of it, which is a deliberate, informed
-// tradeoff (see allowedEmails.js) — not an oversight. Grants the same
-// "viewer" role/session as any other non-admin account, so every existing
-// requireAuth/requireRole check downstream needs no changes.
+// Names a Google account holder from their email's local part when Google
+// doesn't hand back a real name (rare, but the account might have none set)
+// — same fallback the old email-only login used.
 function nameFromEmail(email) {
   return email
     .split("@")[0]
@@ -33,14 +31,70 @@ function nameFromEmail(email) {
     .join(" ");
 }
 
-router.post("/email-access", (req, res) => {
-  const email = String(req.body?.email ?? "").trim().toLowerCase();
-  if (!email) return res.status(400).json({ error: "Enter your work email." });
-  if (!isAllowedEmail(email)) {
-    return res.status(403).json({ error: "This email doesn't have access yet. Contact your administrator to be added." });
+// Replaced the earlier email-only gate (type any allowed address, no proof
+// you own it) with real "Sign in with Google" — StyleCraft's email runs on
+// Google Workspace, so a successful Google sign-in IS proof of owning that
+// mailbox. The allowlist (allowedEmails.js) still gates who's let in after
+// that — Workspace membership alone isn't enough, only the same ~16
+// directors as before. Grants the same "viewer" role/session shape as
+// every other non-admin account, so every existing requireAuth/requireRole
+// check downstream needs no changes.
+const OAUTH_STATE_COOKIE = "stylecraft_oauth_state";
+
+function googleClient() {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = process.env;
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) return null;
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+}
+
+router.get("/google", (req, res) => {
+  const client = googleClient();
+  if (!client) return res.status(503).send("Google sign-in isn't configured yet — contact your administrator.");
+
+  // CSRF guard: a random value round-tripped through Google and checked
+  // against this same short-lived cookie on the way back, so the callback
+  // can tell a real sign-in redirect apart from a forged one.
+  const state = crypto.randomBytes(16).toString("hex");
+  res.cookie(OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: "lax", maxAge: 5 * 60 * 1000 });
+
+  const url = client.generateAuthUrl({
+    scope: ["openid", "email", "profile"],
+    hd: "stylecraftus.com", // narrows Google's account picker; the real check is server-side below
+    prompt: "select_account",
+    state,
+  });
+  res.redirect(url);
+});
+
+router.get("/google/callback", async (req, res) => {
+  const client = googleClient();
+  if (!client) return res.status(503).send("Google sign-in isn't configured yet — contact your administrator.");
+
+  const { code, state } = req.query;
+  const expectedState = req.cookies?.[OAUTH_STATE_COOKIE];
+  res.clearCookie(OAUTH_STATE_COOKIE);
+
+  const fail = (message) => res.redirect(`/login?error=${encodeURIComponent(message)}`);
+  if (!code || !state || state !== expectedState) return fail("Sign-in failed — please try again.");
+
+  try {
+    const { tokens } = await client.getToken({ code, redirect_uri: process.env.GOOGLE_REDIRECT_URI });
+    const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: process.env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const email = String(payload?.email ?? "").trim().toLowerCase();
+
+    // email_verified is Google's own confirmation the address is real and
+    // owned by this account — isAllowedEmail is StyleCraft's director list.
+    // Both must hold; neither alone is the access decision.
+    if (!payload?.email_verified || !isAllowedEmail(email)) {
+      return fail("This Google account isn't on the approved list. Contact your administrator.");
+    }
+
+    setSessionCookie(res, { username: email, name: payload.name || nameFromEmail(email), role: "viewer" });
+    res.redirect("/");
+  } catch {
+    fail("Sign-in failed — please try again.");
   }
-  setSessionCookie(res, { username: email, name: nameFromEmail(email), role: "viewer" });
-  res.json({ user: { username: email, name: nameFromEmail(email), role: "viewer" } });
 });
 
 router.post("/logout", (req, res) => {

@@ -142,13 +142,11 @@ export function login(username, password) {
   });
 }
 
-export function loginWithEmail(email) {
-  return request("/auth/email-access", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-}
+// Not an AJAX call — Google's OAuth flow is a full-page redirect dance
+// (this page -> Google's consent screen -> our callback route, which sets
+// the session cookie itself and redirects back to "/"), so this is just
+// the URL Login.jsx points the browser at directly, not a request() call.
+export const GOOGLE_SIGN_IN_URL = "/api/auth/google";
 
 export function logout() {
   return request("/auth/logout", { method: "POST" });
