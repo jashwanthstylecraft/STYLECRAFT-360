@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw, Mail } from "lucide-react";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw, Mail, ChevronDown } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -462,6 +462,7 @@ function DirectorAccessSection() {
   const [error, setError] = useState(null);
   const [newEmail, setNewEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showList, setShowList] = useState(false);
 
   const refresh = useCallback(() => {
     fetchAllowedEmails()
@@ -503,25 +504,44 @@ function DirectorAccessSection() {
       title="Director access"
       description="Emails that can sign in with Google (no password — Google itself confirms who they are). Add or remove anyone here, no code changes needed."
     >
-      <div className="mb-4 space-y-2">
+      <div className="mb-4">
         {emails === null && <div className="text-sm text-ink-muted">Loading…</div>}
         {emails?.length === 0 && <div className="text-sm text-ink-muted">No emails yet — add one below.</div>}
-        {emails?.map((email) => (
-          <div key={email} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <Mail size={14} className="shrink-0 text-ink-muted" />
-              <span className="truncate text-sm text-ink">{email}</span>
-            </div>
+        {emails && emails.length > 0 && (
+          <>
             <button
-              onClick={() => handleRemove(email)}
-              className="shrink-0 rounded-md p-1.5 text-negative hover:bg-surface-hover"
-              title="Remove"
-              aria-label={`Remove ${email}`}
+              type="button"
+              onClick={() => setShowList((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm font-medium text-ink hover:bg-surface-hover"
+              aria-expanded={showList}
             >
-              <Trash2 size={15} />
+              <span>
+                {emails.length} {emails.length === 1 ? "director has" : "directors have"} access
+              </span>
+              <ChevronDown size={16} className={`text-ink-muted transition-transform ${showList ? "rotate-180" : ""}`} />
             </button>
-          </div>
-        ))}
+            {showList && (
+              <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-surface-border p-2">
+                {emails.map((email) => (
+                  <div key={email} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Mail size={14} className="shrink-0 text-ink-muted" />
+                      <span className="truncate text-sm text-ink">{email}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRemove(email)}
+                      className="shrink-0 rounded-md p-1.5 text-negative hover:bg-surface-hover"
+                      title="Remove"
+                      aria-label={`Remove ${email}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {error && (
