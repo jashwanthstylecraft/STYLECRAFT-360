@@ -180,6 +180,22 @@ export function resetUserPassword(username, password) {
   });
 }
 
+export function fetchAllowedEmails() {
+  return request("/allowed-emails");
+}
+
+export function addAllowedEmail(email) {
+  return request("/allowed-emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function removeAllowedEmail(email) {
+  return request(`/allowed-emails/${encodeURIComponent(email)}`, { method: "DELETE" });
+}
+
 export function fetchCustomMetrics() {
   return request("/custom-metrics");
 }

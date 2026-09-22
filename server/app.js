@@ -31,6 +31,8 @@ const metricNameOverrides = require("./data/metricNameOverrides");
 const metricNamesRouter = require("./routes/metricNames");
 const hiddenMetrics = require("./data/hiddenMetrics");
 const hiddenMetricsRouter = require("./routes/hiddenMetrics");
+const allowedEmails = require("./data/allowedEmails");
+const allowedEmailsRouter = require("./routes/allowedEmails");
 
 const app = express();
 
@@ -71,6 +73,7 @@ app.use(async (req, res, next) => {
       customMetrics.ensureFreshCustomMetrics(),
       metricNameOverrides.ensureFreshMetricNameOverrides(),
       hiddenMetrics.ensureFreshHiddenMetrics(),
+      allowedEmails.ensureFreshAllowedEmails(),
     ]);
     next();
   } catch (err) {
@@ -101,5 +104,6 @@ app.use("/api/users", requireRole("admin"), usersRouter);
 app.use("/api/custom-metrics", requireRole("admin"), customMetricsRouter);
 app.use("/api/metric-names", requireRole("admin"), metricNamesRouter);
 app.use("/api/hidden-metrics", requireRole("admin"), hiddenMetricsRouter);
+app.use("/api/allowed-emails", requireRole("admin"), allowedEmailsRouter);
 
 module.exports = app;

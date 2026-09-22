@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw } from "lucide-react";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw, Mail } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,6 +16,9 @@ import {
   addUser,
   removeUser,
   resetUserPassword,
+  fetchAllowedEmails,
+  addAllowedEmail,
+  removeAllowedEmail,
   fetchCustomMetrics,
   addCustomMetric,
   removeCustomMetric,
@@ -454,6 +457,105 @@ function TeamSection() {
   );
 }
 
+function DirectorAccessSection() {
+  const [emails, setEmails] = useState(null);
+  const [error, setError] = useState(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const refresh = useCallback(() => {
+    fetchAllowedEmails()
+      .then((data) => setEmails(data.emails))
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await addAllowedEmail(newEmail);
+      setNewEmail("");
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRemove(email) {
+    setError(null);
+    try {
+      await removeAllowedEmail(email);
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Director access"
+      description="Emails that can sign in with Google (no password — Google itself confirms who they are). Add or remove anyone here, no code changes needed."
+    >
+      <div className="mb-4 space-y-2">
+        {emails === null && <div className="text-sm text-ink-muted">Loading…</div>}
+        {emails?.length === 0 && <div className="text-sm text-ink-muted">No emails yet — add one below.</div>}
+        {emails?.map((email) => (
+          <div key={email} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Mail size={14} className="shrink-0 text-ink-muted" />
+              <span className="truncate text-sm text-ink">{email}</span>
+            </div>
+            <button
+              onClick={() => handleRemove(email)}
+              className="shrink-0 rounded-md p-1.5 text-negative hover:bg-surface-hover"
+              title="Remove"
+              aria-label={`Remove ${email}`}
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[240px] flex-1">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-muted">Email</label>
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="jamie@stylecraftus.com"
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-ink focus:border-actual focus:outline-none"
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex items-center gap-1.5 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <UserPlus size={15} />
+          Add
+        </button>
+      </form>
+    </SettingsSection>
+  );
+}
+
 function RenameGraphsSection() {
   const queryClient = useQueryClient();
   const { data, error: fetchError } = useQuery({ queryKey: ["metric-names"], queryFn: fetchMetricNames });
@@ -807,6 +909,7 @@ export default function Settings() {
         {isAdmin && <RenameGraphsSection />}
         {isAdmin && <AddGraphSection />}
         {isAdmin && <TeamSection />}
+        {isAdmin && <DirectorAccessSection />}
       </div>
     </PageShell>
   );

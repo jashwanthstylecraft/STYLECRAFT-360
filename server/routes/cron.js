@@ -11,7 +11,7 @@ const repository = require("../data/repository");
 const customMetrics = require("../data/customMetrics");
 const metricNameOverrides = require("../data/metricNameOverrides");
 const hiddenMetrics = require("../data/hiddenMetrics");
-const { ALLOWED_EMAILS } = require("../data/allowedEmails");
+const allowedEmails = require("../data/allowedEmails");
 const { buildWeeklyReport } = require("../services/weeklyReportService");
 const { sendMail } = require("../services/emailService");
 const { fetchDataForChartRows } = require("../services/googleSheetsFetcher");
@@ -45,6 +45,7 @@ router.get("/weekly-report", async (req, res) => {
       customMetrics.ensureFreshCustomMetrics(),
       metricNameOverrides.ensureFreshMetricNameOverrides(),
       hiddenMetrics.ensureFreshHiddenMetrics(),
+      allowedEmails.ensureFreshAllowedEmails(),
     ]);
 
     const slugs = (process.env.REPORT_METRIC_SLUGS || "")
@@ -52,10 +53,11 @@ router.get("/weekly-report", async (req, res) => {
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const recipients = allowedEmails.getAllowedEmails();
     const report = buildWeeklyReport(slugs.length ? slugs : DEFAULT_SLUGS);
-    await sendMail({ to: ALLOWED_EMAILS, subject: report.subject, html: report.html, text: report.text });
+    await sendMail({ to: recipients, subject: report.subject, html: report.html, text: report.text });
 
-    res.json({ ok: true, sentTo: ALLOWED_EMAILS.length, weekEnding: report.weekEnding, metrics: report.found.length, missing: report.missing });
+    res.json({ ok: true, sentTo: recipients.length, weekEnding: report.weekEnding, metrics: report.found.length, missing: report.missing });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

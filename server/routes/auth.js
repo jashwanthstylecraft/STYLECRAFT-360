@@ -2,7 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const userService = require("../services/userService");
-const { isAllowedEmail } = require("../data/allowedEmails");
+const { ensureFreshAllowedEmails, isAllowedEmail } = require("../data/allowedEmails");
 const { requireAuth, setSessionCookie, clearSessionCookie } = require("../middleware/auth");
 
 const router = express.Router();
@@ -82,6 +82,11 @@ router.get("/google/callback", async (req, res) => {
     const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: process.env.GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
     const email = String(payload?.email ?? "").trim().toLowerCase();
+
+    // This route sits before app.js's cache-priming middleware (it has to —
+    // it's part of the login flow itself), so it primes this one cache
+    // itself rather than relying on that.
+    await ensureFreshAllowedEmails();
 
     // email_verified is Google's own confirmation the address is real and
     // owned by this account — isAllowedEmail is StyleCraft's director list.

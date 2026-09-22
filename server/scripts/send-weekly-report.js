@@ -24,7 +24,7 @@ const repository = require("../data/repository");
 const customMetrics = require("../data/customMetrics");
 const metricNameOverrides = require("../data/metricNameOverrides");
 const hiddenMetrics = require("../data/hiddenMetrics");
-const { ALLOWED_EMAILS } = require("../data/allowedEmails");
+const allowedEmails = require("../data/allowedEmails");
 const { buildWeeklyReport } = require("../services/weeklyReportService");
 const { sendMail } = require("../services/emailService");
 
@@ -50,13 +50,14 @@ async function main() {
     customMetrics.ensureFreshCustomMetrics(),
     metricNameOverrides.ensureFreshMetricNameOverrides(),
     hiddenMetrics.ensureFreshHiddenMetrics(),
+    allowedEmails.ensureFreshAllowedEmails(),
   ]);
 
   const envRecipients = (process.env.REPORT_RECIPIENTS || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const recipients = envRecipients.length ? envRecipients : ALLOWED_EMAILS;
+  const recipients = envRecipients.length ? envRecipients : allowedEmails.getAllowedEmails();
 
   const slugs = (process.env.REPORT_METRIC_SLUGS || "")
     .split(",")
