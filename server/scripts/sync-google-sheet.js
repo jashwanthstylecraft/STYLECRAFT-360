@@ -161,12 +161,13 @@ function resolveWeekEnding(label, anchorISO) {
 }
 
 // Pure planning step — no network calls — so it's fully unit-testable: given
-// the sheet's raw export text and the app's current latest data week,
-// decides exactly what would be written and what would be skipped, for
-// every week strictly after the anchor. Never plans a write for the anchor
-// week itself or anything before it.
-function planSync(rawSheetText, latestDataWeekEnding) {
-  const rows = parseSheetExport(rawSheetText);
+// already-parsed {week, cells} rows (from parseSheetExport, or from
+// services/googleSheetsFetcher.js's direct Sheets API fetch — same row
+// shape either way) and the app's current latest data week, decides
+// exactly what would be written and what would be skipped, for every week
+// strictly after the anchor. Never plans a write for the anchor week
+// itself or anything before it.
+function planSyncFromRows(rows, latestDataWeekEnding) {
   const toSync = [];
   const unresolved = [];
 
@@ -188,6 +189,14 @@ function planSync(rawSheetText, latestDataWeekEnding) {
 
   toSync.sort((a, b) => (a.weekEnding < b.weekEnding ? -1 : 1)); // oldest first
   return { toSync, unresolved };
+}
+
+// Text-export entry point (manual/local use — paste a raw sheet export to
+// a file and run this script directly). The automated Saturday sync
+// (routes/cron.js) calls planSyncFromRows directly with rows fetched live
+// from the Sheets API instead — see services/googleSheetsFetcher.js.
+function planSync(rawSheetText, latestDataWeekEnding) {
+  return planSyncFromRows(parseSheetExport(rawSheetText), latestDataWeekEnding);
 }
 
 async function main() {
@@ -233,7 +242,16 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 }
 
-module.exports = { parseSheetExport, buildEntries, resolveWeekEnding, planSync, SIMPLE_METRICS, MULTI_METRICS, SCALED_SUBKEY_METRICS };
+module.exports = {
+  parseSheetExport,
+  buildEntries,
+  resolveWeekEnding,
+  planSync,
+  planSyncFromRows,
+  SIMPLE_METRICS,
+  MULTI_METRICS,
+  SCALED_SUBKEY_METRICS,
+};
 
 if (require.main === module) {
   main().catch((err) => {
