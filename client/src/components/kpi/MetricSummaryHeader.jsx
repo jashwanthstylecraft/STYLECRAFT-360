@@ -38,11 +38,11 @@ function GroupedHeader({ name, preorderTotal, backorderTotal, preorderWowDeltaPc
       <div className="mt-2.5 flex items-center justify-center gap-3">
         <TrendArrow
           deltaPct={preorderWowDeltaPct}
-          pillColorClass="bg-actual/10 text-actual-strong ring-actual/30 dark:bg-actual/10 dark:ring-actual/30"
+          pillColorClass="bg-blue-50 text-actual-strong ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/30"
         />
         <TrendArrow
           deltaPct={backorderWowDeltaPct}
-          pillColorClass="bg-goal/10 text-goal ring-goal/30 dark:bg-goal/10 dark:ring-goal/30"
+          pillColorClass="bg-red-50 text-goal ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30"
         />
       </div>
     </div>
