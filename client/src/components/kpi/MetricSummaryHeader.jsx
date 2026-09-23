@@ -28,10 +28,22 @@ function GroupedHeader({ name, preorderTotal, backorderTotal, preorderWowDeltaPc
           never flipped to track good/bad — an increasing Backorder total
           showing a down-arrow just because a rise is undesirable reads as
           "backorders went down," which is the opposite of what happened.
-          Color still conveys good/bad via positiveIsGood. */}
+          Pill color matches each series' own color from the totals above
+          (blue/red) instead of the usual good/bad green/red, so the two
+          pills read as "Pre-order's number" and "Backorder's number," not
+          as a verdict on whether this week was good — that reading was
+          actively misleading here since a bad week for one series and a
+          bad week for the other look identical (both red) even though
+          they're opposite directions of movement. */}
       <div className="mt-2.5 flex items-center justify-center gap-3">
-        <TrendArrow deltaPct={preorderWowDeltaPct} />
-        <TrendArrow deltaPct={backorderWowDeltaPct} positiveIsGood={false} />
+        <TrendArrow
+          deltaPct={preorderWowDeltaPct}
+          pillColorClass="bg-actual/10 text-actual-strong ring-actual/30 dark:bg-actual/10 dark:ring-actual/30"
+        />
+        <TrendArrow
+          deltaPct={backorderWowDeltaPct}
+          pillColorClass="bg-goal/10 text-goal ring-goal/30 dark:bg-goal/10 dark:ring-goal/30"
+        />
       </div>
     </div>
   );

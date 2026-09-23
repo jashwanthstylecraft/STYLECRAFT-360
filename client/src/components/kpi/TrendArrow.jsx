@@ -10,7 +10,12 @@ import { usePeriod } from "../../hooks/usePeriod";
 // it explicitly to override that (or "" to suppress it). `arrowMeansGood`
 // flips the icon itself to track good/bad instead of literal direction (up =
 // improving, down = worsening) — opt-in, off by default so every other card
-// keeps showing the number's actual direction.
+// keeps showing the number's actual direction. `pillColorClass` overrides
+// the computed good/bad color entirely with a fixed one — for a card like
+// Pre-orders/Backorders where each series already has its own brand color
+// (blue/red, matching the totals above it), the WoW pill should stay that
+// series' color regardless of whether the move was good or bad, not switch
+// to the unrelated green/red good/bad scheme every other card uses.
 // Always rendered as a pill — matches AttainmentPill's tier colors so every
 // trend badge across the app reads as one consistent visual family.
 const GOOD_PILL = "bg-green-50 text-positive ring-green-200 dark:bg-green-500/10 dark:ring-green-500/30";
@@ -23,6 +28,7 @@ export default function TrendArrow({
   formatter = (v) => formatPercent(v),
   suffix,
   arrowMeansGood = false,
+  pillColorClass,
 }) {
   const { deltaLabel } = usePeriod();
   const resolvedSuffix = suffix === undefined ? deltaLabel : suffix;
@@ -42,7 +48,7 @@ export default function TrendArrow({
   const isFlat = !isInfinite && Math.abs(deltaPct) < 0.05;
   const isUp = deltaPct > 0;
   const isGood = isFlat ? true : isUp === positiveIsGood;
-  const pillClass = isFlat ? FLAT_PILL : isGood ? GOOD_PILL : BAD_PILL;
+  const pillClass = pillColorClass ?? (isFlat ? FLAT_PILL : isGood ? GOOD_PILL : BAD_PILL);
   const pointsUp = arrowMeansGood ? isGood : isUp;
   const Icon = isFlat ? Minus : pointsUp ? ArrowUp : ArrowDown;
 
