@@ -31,11 +31,11 @@ const SIMPLE_METRICS = [
   // SCALED_SUBKEY_METRICS below, where it's mapped with a x1000 scale
   // factor instead.
   { slug: "inventory-level", valueCol: 10, goalCol: 11 },
-  // col 12/13 (OPEN Factory P.O.s) intentionally excluded — the sheet only
-  // gives a combined total, but the app needs a paid/unpaid split with no
-  // way to derive it from one number.
-  // col 14/15 — no metric name at all in the sheet's own header; nothing to
-  // map it to.
+  // col 12/13/14 (OPEN Factory P.O.s) is NOT a plain value/goal pair — see
+  // MULTI_METRICS below, where it's mapped as a real paid/unpaid split
+  // (col 14's header cell is blank/merged in the sheet, which is why an
+  // earlier read of this tab missed it and wrongly assumed only a combined
+  // total existed).
   { slug: "inventory-discrepancy", valueCol: 16, goalCol: 17 },
   { slug: "ar-total", valueCol: 18, goalCol: 19 },
   { slug: "ar-past-due", valueCol: 20, goalCol: 21 },
@@ -57,6 +57,13 @@ const MULTI_METRICS = [
   { slug: "shipping-time-days", subKeys: ["b2b", "b2c"], cols: [34, 35] },
   { slug: "in-stock-percentage", subKeys: ["orderFill", "skuAvail"], cols: [44, 45] },
   { slug: "preorders-backorders", subKeys: ["preorder", "backorder"], cols: [38, 39] },
+  // ValueF (col 12) / ValueG (col 14) — GoalF (col 13) sits between them and
+  // is this metric's real per-week goal, handled by GOAL_SYNC_METRICS
+  // below, not by this pair. Confirmed against 9 real weeks (Jul-24 -
+  // Sep-18 2026): paid matched the app's existing history exactly for
+  // every week; unpaid had drifted to a corrupted goal-value duplicate for
+  // Sep-4 and Sep-11 specifically, fixed by hand from this same column.
+  { slug: "open-factory-pos", subKeys: ["paid", "unpaid"], cols: [12, 14] },
 ];
 
 // Metrics where the sheet stores just ONE of a multi-value metric's
@@ -71,15 +78,18 @@ const SCALED_SUBKEY_METRICS = [{ slug: "website-sales", subKey: "stylecraft", co
 // Goals are almost always pre-filled weeks/months ahead of time by hand, so
 // the sync still never RE-DERIVES an already-set goal from the sheet — see
 // the additive `already !== null` check below, same rule GoalRangePanel
-// uses. The one exception: columns AZ-BD hold goal values the sheet's own
-// owner confirmed are authoritative (reconciled against the registry Sep
-// 2026), and of those five, Website Sales' "Web Ad Sales Goals" (BC, col
-// 54) is the only one the app actually stores per week (a real `goals`
-// sparse map) rather than a single flat constant — see
-// TARGET_LINE_COLUMNS below for the other four. Same thousands-shorthand
-// scale as its value column (col 8) — confirmed against real weeks (e.g.
-// Aug-14: sheet "58" == real $58,000 goal).
-const GOAL_SYNC_METRICS = [{ slug: "website-sales", col: 54, scale: 1000 }];
+// uses. Two exceptions, both confirmed against real sheet data: Website
+// Sales' "Web Ad Sales Goals" (BC, col 54, part of the AZ-BD goal block —
+// see TARGET_LINE_COLUMNS below for the other four columns in that block,
+// which the app has no per-week storage for at all) — thousands-shorthand
+// scale, same as its value column (col 8; e.g. Aug-14: sheet "58" == real
+// $58,000 goal). And Open Factory P.O.s' GoalF (col 13, part of its own
+// paid/goal/unpaid triad — see MULTI_METRICS above) — already a plain
+// dollar figure like its value columns, no scale needed.
+const GOAL_SYNC_METRICS = [
+  { slug: "website-sales", col: 54, scale: 1000 },
+  { slug: "open-factory-pos", col: 13 },
+];
 
 // AZ/BA/BB/BD — In-Stock %, Shipping Time, Education Events, New Social
 // Follow/Subs. Each is a single constant repeated on every sheet row, not a
@@ -150,7 +160,7 @@ function buildEntries(cells, existingGoals = {}) {
     if (already !== null && already !== undefined) continue; // additive only — never overwrite a pre-filled goal
     const raw = parseNumber(cells[m.col]);
     if (raw === null) continue; // nothing to add — leave for manual entry, same as any other unresolved field
-    entries[m.slug] = { ...entries[m.slug], goal: raw * m.scale };
+    entries[m.slug] = { ...entries[m.slug], goal: raw * (m.scale ?? 1) };
   }
 
   return { entries, skipped };

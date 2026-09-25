@@ -80,15 +80,18 @@ describe("buildEntries", () => {
     expect(entries["repair-rate"]).toBeUndefined();
     expect(skipped).toContain("repair-rate");
 
-    // Never mapped at all, by design — see the comments in sync-google-sheet.js.
-    expect(entries["open-factory-pos"]).toBeUndefined();
+    // Open Factory P.O.s' paid/unpaid split (ValueF/ValueG, cols 12/14) —
+    // fixture cells are "309,000" and "331,000".
+    expect(entries["open-factory-pos.paid"]).toEqual({ value: 309000 });
+    expect(entries["open-factory-pos.unpaid"]).toEqual({ value: 331000 });
   });
 
   it("never produces a goal field for any metric outside GOAL_SYNC_METRICS", () => {
     const rows = parseSheetExport(SAMPLE);
     const { entries } = buildEntries(rows[0].cells);
     for (const [entryKey, payload] of Object.entries(entries)) {
-      if (entryKey === "website-sales") continue; // the one confirmed per-week goal column — see below
+      // The two confirmed per-week goal columns — see the dedicated tests below.
+      if (entryKey === "website-sales" || entryKey === "open-factory-pos") continue;
       expect(payload.goal).toBeUndefined();
     }
   });
@@ -107,6 +110,22 @@ describe("buildEntries", () => {
     const sep11 = rows.find((r) => r.week === "Sep-11");
     const { entries } = buildEntries(sep11.cells, { "website-sales": 53000 });
     expect(entries["website-sales"]).toBeUndefined();
+  });
+
+  it("adds Open Factory P.O.s' goal from GoalF (col 13) when none exists yet — plain dollars, no scale", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const sep11 = rows.find((r) => r.week === "Sep-11");
+    const { entries } = buildEntries(sep11.cells, { "open-factory-pos": null });
+    // Fixture cell is "320,000" — unlike Website Sales' BC column, this one
+    // is already a plain dollar figure, not thousands-shorthand.
+    expect(entries["open-factory-pos"]).toEqual({ goal: 320000 });
+  });
+
+  it("skips Open Factory P.O.s' goal when the week already has one", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const sep11 = rows.find((r) => r.week === "Sep-11");
+    const { entries } = buildEntries(sep11.cells, { "open-factory-pos": 14154667 });
+    expect(entries["open-factory-pos"]).toBeUndefined();
   });
 });
 
@@ -159,20 +178,25 @@ describe("planSync", () => {
     expect(toSync.map((s) => s.weekEnding)).toEqual(["2026-08-21", "2026-08-28", "2026-09-04", "2026-09-11"]);
   });
 
-  it("passes each planned week's slug/weekEnding to getExistingGoal and includes the goal when it returns null", () => {
+  it("passes each planned week's slug/weekEnding to getExistingGoal (for every GOAL_SYNC_METRICS entry) and includes the goal when it returns null", () => {
     const rows = parseSheetExport(SAMPLE);
     const calls = [];
     const { toSync } = planSyncFromRows(rows, "2026-09-04", (slug, weekEnding) => {
       calls.push([slug, weekEnding]);
       return null;
     });
-    expect(calls).toEqual([["website-sales", "2026-09-11"]]);
+    expect(calls).toEqual([
+      ["website-sales", "2026-09-11"],
+      ["open-factory-pos", "2026-09-11"],
+    ]);
     expect(toSync[0].entries["website-sales"]).toEqual({ goal: 771000000 });
+    expect(toSync[0].entries["open-factory-pos"]).toEqual({ goal: 320000 });
   });
 
   it("omits the goal when getExistingGoal reports one already set for that week", () => {
     const rows = parseSheetExport(SAMPLE);
     const { toSync } = planSyncFromRows(rows, "2026-09-04", () => 53000);
     expect(toSync[0].entries["website-sales"]).toBeUndefined();
+    expect(toSync[0].entries["open-factory-pos"]).toBeUndefined();
   });
 });
