@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { parseSheetExport, buildEntries, resolveWeekEnding, planSync } from "./sync-google-sheet.js";
+import { parseSheetExport, buildEntries, resolveWeekEnding, planSync, planSyncFromRows, checkTargetLineDrift } from "./sync-google-sheet.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -84,12 +84,60 @@ describe("buildEntries", () => {
     expect(entries["open-factory-pos"]).toBeUndefined();
   });
 
-  it("never produces a goal field — the sync only ever writes results", () => {
+  it("never produces a goal field for any metric outside GOAL_SYNC_METRICS", () => {
     const rows = parseSheetExport(SAMPLE);
     const { entries } = buildEntries(rows[0].cells);
-    for (const payload of Object.values(entries)) {
+    for (const [entryKey, payload] of Object.entries(entries)) {
+      if (entryKey === "website-sales") continue; // the one confirmed per-week goal column — see below
       expect(payload.goal).toBeUndefined();
     }
+  });
+
+  it("adds Website Sales' goal from the Web Ad Sales Goals column (BC, col 54) when none exists yet", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const sep11 = rows.find((r) => r.week === "Sep-11");
+    const { entries } = buildEntries(sep11.cells, { "website-sales": null });
+    // Same thousands-shorthand scale as the value column — fixture cell is
+    // "771,000", so the entry should come out scaled to 771,000,000.
+    expect(entries["website-sales"]).toEqual({ goal: 771000000 });
+  });
+
+  it("skips Website Sales' goal when the week already has one — additive only, never overwrites a pre-filled goal", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const sep11 = rows.find((r) => r.week === "Sep-11");
+    const { entries } = buildEntries(sep11.cells, { "website-sales": 53000 });
+    expect(entries["website-sales"]).toBeUndefined();
+  });
+});
+
+describe("checkTargetLineDrift", () => {
+  const rows = parseSheetExport(SAMPLE);
+  const sep11 = rows.find((r) => r.week === "Sep-11");
+  // Fixture cells 51-55: "738,000", "749,000", "760,000", "771,000", "782,000".
+
+  it("reports no drift when the registry's targetLine matches the sheet", () => {
+    const drift = checkTargetLineDrift(sep11, {
+      "in-stock-percentage": 738000,
+      "shipping-time-days": 749000,
+      "education-events": 760000,
+      "new-social-follow-subs": 782000,
+    });
+    expect(drift).toEqual([]);
+  });
+
+  it("flags a metric whose registry targetLine has drifted from the sheet", () => {
+    const drift = checkTargetLineDrift(sep11, {
+      "in-stock-percentage": 0.95, // stale — sheet says 738000 (synthetic fixture value)
+      "shipping-time-days": 749000,
+      "education-events": 760000,
+      "new-social-follow-subs": 782000,
+    });
+    expect(drift).toEqual([{ slug: "in-stock-percentage", sheetLabel: "in stock goal (AZ)", sheetValue: 738000, registryValue: 0.95 }]);
+  });
+
+  it("skips a metric with no registered targetLine rather than flagging it", () => {
+    const drift = checkTargetLineDrift(sep11, { "in-stock-percentage": null });
+    expect(drift).toEqual([]);
   });
 });
 
@@ -109,5 +157,22 @@ describe("planSync", () => {
     const { toSync } = planSync(SAMPLE, "2026-08-14");
     expect(toSync.every((s) => s.weekEnding > "2026-08-14")).toBe(true);
     expect(toSync.map((s) => s.weekEnding)).toEqual(["2026-08-21", "2026-08-28", "2026-09-04", "2026-09-11"]);
+  });
+
+  it("passes each planned week's slug/weekEnding to getExistingGoal and includes the goal when it returns null", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const calls = [];
+    const { toSync } = planSyncFromRows(rows, "2026-09-04", (slug, weekEnding) => {
+      calls.push([slug, weekEnding]);
+      return null;
+    });
+    expect(calls).toEqual([["website-sales", "2026-09-11"]]);
+    expect(toSync[0].entries["website-sales"]).toEqual({ goal: 771000000 });
+  });
+
+  it("omits the goal when getExistingGoal reports one already set for that week", () => {
+    const rows = parseSheetExport(SAMPLE);
+    const { toSync } = planSyncFromRows(rows, "2026-09-04", () => 53000);
+    expect(toSync[0].entries["website-sales"]).toBeUndefined();
   });
 });

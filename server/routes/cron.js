@@ -15,7 +15,7 @@ const allowedEmails = require("../data/allowedEmails");
 const { buildWeeklyReport } = require("../services/weeklyReportService");
 const { sendMail } = require("../services/emailService");
 const { fetchDataForChartRows } = require("../services/googleSheetsFetcher");
-const { planSyncFromRows } = require("../scripts/sync-google-sheet");
+const { planSyncFromRows, resolveWeekEnding, checkTargetLineDrift, TARGET_LINE_COLUMNS } = require("../scripts/sync-google-sheet");
 const entryService = require("../services/entryService");
 
 const router = express.Router();
@@ -87,10 +87,35 @@ router.get("/weekly-sheet-sync", async (req, res) => {
     const latestDataWeekEnding = repository.getLatestDataWeekEndingAcrossDepartments();
     if (!latestDataWeekEnding) throw new Error("Could not determine the app's latest data week.");
 
-    const rows = await fetchDataForChartRows();
-    const { toSync, unresolved } = planSyncFromRows(rows, latestDataWeekEnding);
+    // Additive-only lookup for GOAL_SYNC_METRICS (currently just Website
+    // Sales) — a future week already carrying a hand-set goal (e.g. via
+    // GoalRangePanel) must never be overwritten by the sheet's value.
+    function getExistingGoal(slug, weekEnding) {
+      const metric = sharedRegistry.getMetric(slug);
+      if (!metric) return null;
+      const sparse = repository.getSparseDepartmentData(metric.department);
+      const found = sparse.METRICS.find((m) => m.slug === slug);
+      return found?.goals?.[weekEnding] ?? null;
+    }
 
-    const report = { anchorWeek: latestDataWeekEnding, synced: [], failed: [], unresolved };
+    const rows = await fetchDataForChartRows();
+    const { toSync, unresolved } = planSyncFromRows(rows, latestDataWeekEnding, getExistingGoal);
+
+    // Drift-only check for the 4 flat-constant goal columns (In-Stock %,
+    // Shipping Time, Education Events, Social) — these have no per-week
+    // storage in the app at all (see TARGET_LINE_COLUMNS' comment), so
+    // there's nothing to write; this just flags it in the report if the
+    // sheet's constant and the registry's targetLine ever disagree again,
+    // for a human to reconcile by hand (never auto-applied).
+    const anchorRow = rows.find((r) => resolveWeekEnding(r.week, latestDataWeekEnding) === latestDataWeekEnding);
+    const targetLineDrift = anchorRow
+      ? checkTargetLineDrift(
+          anchorRow,
+          Object.fromEntries(TARGET_LINE_COLUMNS.map((c) => [c.slug, sharedRegistry.getMetric(c.slug)?.targetLine ?? null]))
+        )
+      : [];
+
+    const report = { anchorWeek: latestDataWeekEnding, synced: [], failed: [], unresolved, targetLineDrift };
     for (const plan of toSync) {
       // planSyncFromRows already sorted oldest-first; each saveWeek() call
       // updates the shared in-memory snapshot cache immediately (see

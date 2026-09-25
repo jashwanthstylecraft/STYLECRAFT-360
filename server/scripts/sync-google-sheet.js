@@ -18,6 +18,11 @@
 // metrics have no real scalar goal in the registry (hasGoal: false) — for
 // those, the sheet repurposes its "Value/Goal" columns to hold the
 // metric's own two real sub-values instead of an actual goal.
+//
+// Goals: RESULT values are always synced (see SIMPLE_METRICS etc. above);
+// GOAL values are synced only for the one metric the sheet's dedicated
+// AZ-BD goal block (columns 51-55) and the app's own data model agree on —
+// see GOAL_SYNC_METRICS and TARGET_LINE_COLUMNS just below.
 const SIMPLE_METRICS = [
   { slug: "us-b2b-invoiced", valueCol: 2, goalCol: 3 },
   { slug: "ecommerce-ex-website", valueCol: 4, goalCol: 5 },
@@ -63,10 +68,34 @@ const MULTI_METRICS = [
 // column exists for gammaPlus at all — never written, same as before.
 const SCALED_SUBKEY_METRICS = [{ slug: "website-sales", subKey: "stylecraft", col: 8, scale: 1000 }];
 
-// Never write goals via the sync — goals are almost always pre-filled
-// weeks/months ahead of time by hand, and re-deriving them from the sheet
-// risks silently overwriting a deliberate manual change. The sync only
-// ever adds newly-appearing RESULT values.
+// Goals are almost always pre-filled weeks/months ahead of time by hand, so
+// the sync still never RE-DERIVES an already-set goal from the sheet — see
+// the additive `already !== null` check below, same rule GoalRangePanel
+// uses. The one exception: columns AZ-BD hold goal values the sheet's own
+// owner confirmed are authoritative (reconciled against the registry Sep
+// 2026), and of those five, Website Sales' "Web Ad Sales Goals" (BC, col
+// 54) is the only one the app actually stores per week (a real `goals`
+// sparse map) rather than a single flat constant — see
+// TARGET_LINE_COLUMNS below for the other four. Same thousands-shorthand
+// scale as its value column (col 8) — confirmed against real weeks (e.g.
+// Aug-14: sheet "58" == real $58,000 goal).
+const GOAL_SYNC_METRICS = [{ slug: "website-sales", col: 54, scale: 1000 }];
+
+// AZ/BA/BB/BD — In-Stock %, Shipping Time, Education Events, New Social
+// Follow/Subs. Each is a single constant repeated on every sheet row, not a
+// real per-week figure, matching how the app itself stores them: a flat
+// `targetLine` in metricRegistry.mjs (drawn as one ReferenceLine), never a
+// per-week `goals` entry. There's nothing to write weekly for these — only
+// something to flag if the sheet's constant ever drifts from the registry
+// again (as In-Stock % did: registry said 0.95, sheet said 0.96, fixed by
+// hand Sep 2026). See checkTargetLineDrift.
+const TARGET_LINE_COLUMNS = [
+  { slug: "in-stock-percentage", col: 51, sheetLabel: "in stock goal (AZ)" },
+  { slug: "shipping-time-days", col: 52, sheetLabel: "Shipping goal (BA)" },
+  { slug: "education-events", col: 53, sheetLabel: "Education Goal (BB)" },
+  { slug: "new-social-follow-subs", col: 55, sheetLabel: "Social Goal (BD)" },
+];
+
 function parseNumber(raw) {
   if (raw === undefined || raw === null) return null;
   const cleaned = String(raw)
@@ -79,7 +108,10 @@ function parseNumber(raw) {
   return Number.isFinite(num) ? num : null;
 }
 
-function buildEntries(cells) {
+// existingGoals: { [slug]: currentGoalOrNull } for the week being planned —
+// only metrics in GOAL_SYNC_METRICS are looked up. Caller-supplied (rather
+// than fetched here) so this stays a pure, synchronous function.
+function buildEntries(cells, existingGoals = {}) {
   const entries = {};
   const skipped = [];
 
@@ -113,7 +145,31 @@ function buildEntries(cells) {
     entries[`${m.slug}.${m.subKey}`] = { value: raw * m.scale };
   }
 
+  for (const m of GOAL_SYNC_METRICS) {
+    const already = existingGoals[m.slug];
+    if (already !== null && already !== undefined) continue; // additive only — never overwrite a pre-filled goal
+    const raw = parseNumber(cells[m.col]);
+    if (raw === null) continue; // nothing to add — leave for manual entry, same as any other unresolved field
+    entries[m.slug] = { ...entries[m.slug], goal: raw * m.scale };
+  }
+
   return { entries, skipped };
+}
+
+// Pure — takes the app's CURRENT goal values (already read by the caller)
+// rather than reaching into the registry/repository itself, so this stays
+// testable with a plain object like every other check in this file.
+function checkTargetLineDrift(row, registryTargetLines) {
+  const drift = [];
+  for (const c of TARGET_LINE_COLUMNS) {
+    const sheetValue = parseNumber(row.cells[c.col]);
+    const registryValue = registryTargetLines[c.slug];
+    if (sheetValue === null || registryValue === null || registryValue === undefined) continue;
+    if (Math.abs(sheetValue - registryValue) > 1e-9) {
+      drift.push({ slug: c.slug, sheetLabel: c.sheetLabel, sheetValue, registryValue });
+    }
+  }
+  return drift;
 }
 
 // Splits the markdown-table text `read_file_content` returns for the sheet
@@ -167,7 +223,13 @@ function resolveWeekEnding(label, anchorISO) {
 // exactly what would be written and what would be skipped, for every week
 // strictly after the anchor. Never plans a write for the anchor week
 // itself or anything before it.
-function planSyncFromRows(rows, latestDataWeekEnding) {
+//
+// getExistingGoal(slug, weekEnding): optional synchronous lookup for
+// GOAL_SYNC_METRICS' additive check — defaults to "assume nothing set yet"
+// (always null) when the caller has no cheap way to look it up (e.g. the
+// CLI/HTTP entry point below). The real automated path (routes/cron.js)
+// passes a real lookup against the already-primed in-memory snapshot.
+function planSyncFromRows(rows, latestDataWeekEnding, getExistingGoal = () => null) {
   const toSync = [];
   const unresolved = [];
 
@@ -179,7 +241,8 @@ function planSyncFromRows(rows, latestDataWeekEnding) {
     }
     if (weekEnding <= latestDataWeekEnding) continue; // already entered, or older — never touched
 
-    const { entries, skipped } = buildEntries(row.cells);
+    const existingGoals = Object.fromEntries(GOAL_SYNC_METRICS.map((m) => [m.slug, getExistingGoal(m.slug, weekEnding)]));
+    const { entries, skipped } = buildEntries(row.cells, existingGoals);
     if (Object.keys(entries).length === 0) {
       unresolved.push({ week: row.week, weekEnding, reason: "no fields could be confidently mapped" });
       continue;
@@ -195,8 +258,8 @@ function planSyncFromRows(rows, latestDataWeekEnding) {
 // a file and run this script directly). The automated Saturday sync
 // (routes/cron.js) calls planSyncFromRows directly with rows fetched live
 // from the Sheets API instead — see services/googleSheetsFetcher.js.
-function planSync(rawSheetText, latestDataWeekEnding) {
-  return planSyncFromRows(parseSheetExport(rawSheetText), latestDataWeekEnding);
+function planSync(rawSheetText, latestDataWeekEnding, getExistingGoal = () => null) {
+  return planSyncFromRows(parseSheetExport(rawSheetText), latestDataWeekEnding, getExistingGoal);
 }
 
 async function main() {
@@ -248,9 +311,12 @@ module.exports = {
   resolveWeekEnding,
   planSync,
   planSyncFromRows,
+  checkTargetLineDrift,
   SIMPLE_METRICS,
   MULTI_METRICS,
   SCALED_SUBKEY_METRICS,
+  GOAL_SYNC_METRICS,
+  TARGET_LINE_COLUMNS,
 };
 
 if (require.main === module) {
