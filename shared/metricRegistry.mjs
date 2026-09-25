@@ -132,7 +132,7 @@ export const METRICS = [
     goalDirection: "higher",
     aggregationMethod: "average",
     groupKeys: ["orderFill", "skuAvail"],
-    targetLine: 0.95,
+    targetLine: 0.96, // confirmed against the Data for Chart tab's "in stock goal" column (AZ) — was 0.95, sheet says 0.96
     headerValues: [
       { label: "Order Fill %", format: "percent", color: "blue" },
       { label: "SKU Avail %", format: "percent", color: "red" },
