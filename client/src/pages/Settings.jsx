@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw, Mail, ChevronDown } from "lucide-react";
+import { Moon, Sun, Check, AlertTriangle, EyeOff, Trash2, KeyRound, UserPlus, PlusCircle, RotateCcw, Mail, ChevronDown, Activity } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,6 +9,7 @@ import { getReducedMotionOverride, setReducedMotionOverride } from "../hooks/use
 import { getVisibilityFloor, setVisibilityFloor } from "../utils/dataVisibility";
 import { snapToNearestWeekEnding } from "../utils/datePresets";
 import { CALENDAR_START, CALENDAR_END, formatWeekEndingLabel } from "../utils/weekCalendar";
+import { formatValue } from "../utils/format";
 import { invalidateAllDataQueries } from "../hooks/dataQueryKeys";
 import {
   setCounterTotal,
@@ -27,6 +28,7 @@ import {
   resetMetricName,
   hideMetric,
   unhideMetric,
+  fetchDataHealth,
 } from "../services/api";
 
 const DEPARTMENT_OPTIONS = [
@@ -576,6 +578,129 @@ function DirectorAccessSection() {
   );
 }
 
+const HEALTH_TYPE_LABELS = {
+  flatlined: "Flatlined",
+  matchesGoal: "Repeats its goal exactly",
+};
+
+function DataHealthFinding({ finding }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-surface-border px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span className="text-sm font-medium text-ink">{finding.name}</span>
+          <span className="ml-2 text-xs uppercase tracking-wide text-ink-muted">{finding.department}</span>
+        </div>
+        {finding.type === "flatlined" ? (
+          <span className="text-sm text-ink-secondary">
+            {formatValue(finding.value, finding.format)} for {finding.weeks} weeks straight, through{" "}
+            {formatWeekEndingLabel(finding.latestWeekEnding)}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-1 text-sm text-ink-secondary hover:text-ink"
+            disabled={finding.occurrences.length < 2}
+          >
+            {finding.occurrences.length} week{finding.occurrences.length === 1 ? "" : "s"} — most recently{" "}
+            {formatWeekEndingLabel(finding.occurrences[finding.occurrences.length - 1].weekEnding)}:{" "}
+            {formatValue(finding.occurrences[finding.occurrences.length - 1].value, finding.format)}
+            {finding.occurrences.length > 1 && (
+              <ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+            )}
+          </button>
+        )}
+      </div>
+      {finding.type === "matchesGoal" && expanded && (
+        <div className="mt-2 max-h-40 space-y-1 overflow-y-auto border-t border-surface-border pt-2 text-xs text-ink-secondary">
+          {finding.occurrences.map((o) => (
+            <div key={o.weekEnding} className="flex justify-between">
+              <span>{formatWeekEndingLabel(o.weekEnding)}</span>
+              <span className="tabular-nums">{formatValue(o.value, finding.format)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Deliberately manual (a button, not auto-run on page load) and read-only —
+// this only surfaces candidates for a human to look at, per explicit
+// request. Nothing here changes what any dashboard page shows; wiring any
+// of this into the dashboard itself is a separate, later step.
+function DataHealthSection() {
+  const [findings, setFindings] = useState(null);
+  const [error, setError] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  async function handleRun() {
+    setError(null);
+    setIsRunning(true);
+    try {
+      const data = await fetchDataHealth();
+      setFindings(data.findings);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
+  const grouped = findings
+    ? findings.reduce((acc, f) => {
+        (acc[f.type] ??= []).push(f);
+        return acc;
+      }, {})
+    : null;
+
+  return (
+    <SettingsSection
+      title="Data health check"
+      description="Scans every metric for two patterns that have caused real bugs before: a value quietly flatlining for weeks, or a value silently duplicating its own goal. Read-only — running this never changes any data or any dashboard page."
+    >
+      <button
+        type="button"
+        onClick={handleRun}
+        disabled={isRunning}
+        className="flex items-center gap-1.5 rounded-lg bg-actual px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-actual-strong disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Activity size={15} />
+        {isRunning ? "Checking…" : "Run check"}
+      </button>
+
+      {error && (
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+      )}
+
+      {findings && (
+        <div className="mt-4 space-y-4">
+          {findings.length === 0 && <div className="text-sm text-ink-muted">Nothing flagged.</div>}
+          {findings.length > 0 &&
+            Object.entries(grouped).map(([type, items]) => (
+              <div key={type}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  {HEALTH_TYPE_LABELS[type] ?? type} ({items.length})
+                </h3>
+                <div className="space-y-2">
+                  {items.map((f) => (
+                    <DataHealthFinding key={`${f.slug}.${f.subKey ?? ""}`} finding={f} />
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </SettingsSection>
+  );
+}
+
 function RenameGraphsSection() {
   const queryClient = useQueryClient();
   const { data, error: fetchError } = useQuery({ queryKey: ["metric-names"], queryFn: fetchMetricNames });
@@ -930,6 +1055,7 @@ export default function Settings() {
         {isAdmin && <AddGraphSection />}
         {isAdmin && <TeamSection />}
         {isAdmin && <DirectorAccessSection />}
+        {isAdmin && <DataHealthSection />}
       </div>
     </PageShell>
   );

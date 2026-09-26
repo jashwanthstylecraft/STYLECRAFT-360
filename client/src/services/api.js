@@ -196,6 +196,11 @@ export function removeAllowedEmail(email) {
   return request(`/allowed-emails/${encodeURIComponent(email)}`, { method: "DELETE" });
 }
 
+// Read-only, run-on-demand only — see server/services/dataHealthService.js.
+export function fetchDataHealth() {
+  return request("/data-health");
+}
+
 export function fetchCustomMetrics() {
   return request("/custom-metrics");
 }
