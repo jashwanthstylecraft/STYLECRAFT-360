@@ -11,6 +11,7 @@ const METRICS = [
   { slug: "us-b2b-invoiced", values: {} },
   { slug: "intl-b2b-invoiced", values: {} },
   { slug: "ecommerce-ex-website", values: {} },
+  { slug: "tiktok-sales", values: {} },
   { slug: "website-sales", values: {} },
   { slug: "weekly-b2b-orders", values: {} },
   { slug: "beauty-sales", values: {} },

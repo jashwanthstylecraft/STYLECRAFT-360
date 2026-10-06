@@ -45,6 +45,16 @@ export const METRICS = [
     description: "Direct-to-consumer sales through third-party marketplaces, excluding the owned website.",
   },
   {
+    slug: "tiktok-sales",
+    name: "TikTok Sales",
+    department: "sales",
+    chartType: "bar",
+    goalDirection: "higher",
+    format: "currency",
+    aggregationMethod: "sum",
+    description: "Direct-to-consumer sales through TikTok Shop, broken out of eCommerce (ex. Website) starting Jul 2026.",
+  },
+  {
     slug: "website-sales",
     name: "Website Sales",
     department: "sales",

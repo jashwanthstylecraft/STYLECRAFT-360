@@ -96,7 +96,7 @@ function buildSummary(WEEKS, METRICS) {
   );
   const totalInvoicedSeries = WEEKS.map((_, i) => sumAt(invoicedSeriesList, i));
 
-  const d2cSeriesList = ["ecommerce-ex-website", "website-sales", "johnny-b-b2c"].map((slug) =>
+  const d2cSeriesList = ["ecommerce-ex-website", "website-sales", "johnny-b-b2c", "tiktok-sales"].map((slug) =>
     resultSeriesFor(bySlug(slug))
   );
   const totalD2CSeries = WEEKS.map((_, i) => sumAt(d2cSeriesList, i));
