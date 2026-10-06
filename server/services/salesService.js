@@ -55,7 +55,7 @@ function resultSeriesFor(metric) {
 // input is missing (e.g. the tail of a very wide "All time" range, past
 // the last real data) must stay missing — never collapse to a fabricated 0.
 function sumAt(seriesList, index) {
-  const present = seriesList.map((series) => series[index]).filter((v) => v !== null && v !== undefined);
+  const present = seriesList.map((series) => series?.[index]).filter((v) => v !== null && v !== undefined);
   if (present.length === 0) return null;
   return present.reduce((a, b) => a + b, 0);
 }

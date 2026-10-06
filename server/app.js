@@ -78,6 +78,7 @@ app.use(async (req, res, next) => {
     ]);
     next();
   } catch (err) {
+    console.error("[ensureFresh] refresh failed:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -107,5 +108,10 @@ app.use("/api/metric-names", requireRole("admin"), metricNamesRouter);
 app.use("/api/hidden-metrics", requireRole("admin"), hiddenMetricsRouter);
 app.use("/api/allowed-emails", requireRole("admin"), allowedEmailsRouter);
 app.use("/api/data-health", requireRole("admin"), dataHealthRouter);
+
+app.use((err, req, res, next) => {
+  console.error(`[${req.method} ${req.originalUrl}] unhandled error:`, err);
+  res.status(500).json({ error: err.message });
+});
 
 module.exports = app;
