@@ -62,8 +62,19 @@ router.post("/", async (req, res) => {
 // render with (see repository.js's mergeWithRegistry: an unmatched slug is
 // passed through with numbers only), which would break that department's
 // page rather than just disappear cleanly.
+//
+// Guarded against stripping a BUILT-IN metric's real history: this route is
+// only ever meant to undo an admin's own Settings -> Add Graph metric, never
+// a shared/metricRegistry.mjs entry. Without this check, any slug (including
+// one that merely collides with a built-in metric's name-derived slug) would
+// silently delete that metric's data across every department with no
+// confirmation it was ever actually a custom metric — exactly what happened
+// to "tiktok-sales" once, wiping years-irrelevant-but-still-real data.
 router.delete("/:slug", async (req, res) => {
   const { slug } = req.params;
+  if (!customMetrics.getCustomMetrics().some((m) => m.slug === slug)) {
+    return res.status(404).json({ error: `"${slug}" is not a custom metric — built-in graphs can only be hidden, not deleted.` });
+  }
   try {
     await customMetrics.removeCustomMetric(slug);
 
