@@ -167,6 +167,9 @@ export const METRICS = [
       { label: "Order Fill %", format: "percent", color: "blue" },
       { label: "SKU Avail %", format: "percent", color: "red" },
     ],
+    // See weekly-gross-margin's showYtd comment — same reasoning, same
+    // explicit request: a weekly rate metric, YTD not wanted.
+    showYtd: false,
     description: "Share of orders fully filled and SKUs in stock.",
   },
   {
@@ -255,6 +258,9 @@ export const METRICS = [
       { label: "B2B", format: "decimal", color: "blue" },
       { label: "B2C", format: "decimal", color: "red" },
     ],
+    // See weekly-gross-margin's showYtd comment — same reasoning, same
+    // explicit request: a weekly rate metric, YTD not wanted.
+    showYtd: false,
     description: "Average days from order to ship, B2B vs. B2C.",
   },
   {
