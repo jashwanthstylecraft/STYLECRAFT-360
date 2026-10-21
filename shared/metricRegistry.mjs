@@ -110,6 +110,16 @@ export const METRICS = [
     aggregationMethod: "sum",
     description: "Direct-to-consumer sales under the Johnny B brand.",
   },
+  {
+    slug: "units-sold",
+    name: "Units Sold",
+    department: "sales",
+    chartType: "bar",
+    goalDirection: "higher",
+    format: "count",
+    aggregationMethod: "sum",
+    description: "Units sold during the week — summed into the lifetime units counter on the Home dashboard.",
+  },
 
   // ---- Inventory & Purchasing ----
   {

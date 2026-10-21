@@ -1,9 +1,11 @@
 const supabase = require("../data/supabaseClient");
 const { SEED_TOTAL } = require("../data/state/counter.seed");
 const { createChannel } = require("./sseHub");
+const repository = require("../data/repository");
 
 const STATE_KEY = "counter";
 const MAX_UNITS_PER_CALL = 100000;
+const LIFETIME_METRIC_SLUG = "units-sold";
 
 // SSE stays wired for local/self-hosted running (a real persistent process
 // can hold these connections) — client/src/hooks/useCounter.js already
@@ -24,14 +26,42 @@ async function writeState(state) {
   if (error) throw new Error(`Failed to save counter: ${error.message}`);
 }
 
+// Weekly Data Entry now feeds this counter directly — whatever's been
+// entered for the "units-sold" sales metric, for every week AFTER the
+// stored total was last confirmed (setTotal's asOf), is added on top of
+// that confirmed base. This is computed fresh on every read rather than
+// incremented as each week is saved, so correcting a past week's units
+// later (a typo fix in Data Entry) is automatically reflected too — there's
+// no running increment to desync. Admins no longer have to revisit Settings
+// every week; they only ever need setTotal again if they want to
+// re-baseline (e.g. to correct drift), which also resets asOf and starts
+// the weekly sum over from that new point.
+function unitsSoldSince(asOfISO) {
+  const sparse = repository.getSparseDepartmentData("sales");
+  const metric = sparse.METRICS.find((m) => m.slug === LIFETIME_METRIC_SLUG);
+  if (!metric?.values) return 0;
+  const cutoff = new Date(asOfISO).getTime();
+  let sum = 0;
+  for (const [weekEnding, value] of Object.entries(metric.values)) {
+    if (typeof value !== "number") continue;
+    if (new Date(`${weekEnding}T00:00:00Z`).getTime() > cutoff) sum += value;
+  }
+  return sum;
+}
+
+function withWeeklyUnitsSold(stored) {
+  return { ...stored, total: stored.total + unitsSoldSince(stored.asOf) };
+}
+
 async function getState() {
-  return readState();
+  return withWeeklyUnitsSold(await readState());
 }
 
 async function persistAndBroadcast(state) {
   await writeState(state);
-  channel.broadcast("update", state);
-  return state;
+  const display = withWeeklyUnitsSold(state);
+  channel.broadcast("update", display);
+  return display;
 }
 
 // A real increment (e.g. a future order-feed webhook) moves the number but
