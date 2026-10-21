@@ -17,7 +17,7 @@ const METRICS = [
   { slug: "beauty-sales", values: {} },
   { slug: "preorders-backorders", values: {} },
   { slug: "johnny-b-b2c", values: {} },
-  { slug: "units-sold", values: {} },
+  { slug: "lifetime-units", values: {} },
 ];
 
 module.exports = { METRICS };

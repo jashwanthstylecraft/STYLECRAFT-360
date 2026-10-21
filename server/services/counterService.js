@@ -5,7 +5,7 @@ const repository = require("../data/repository");
 
 const STATE_KEY = "counter";
 const MAX_UNITS_PER_CALL = 100000;
-const LIFETIME_METRIC_SLUG = "units-sold";
+const LIFETIME_METRIC_SLUG = "lifetime-units";
 
 // SSE stays wired for local/self-hosted running (a real persistent process
 // can hold these connections) — client/src/hooks/useCounter.js already
@@ -27,7 +27,8 @@ async function writeState(state) {
 }
 
 // Weekly Data Entry now feeds this counter directly — whatever's been
-// entered for the "units-sold" sales metric, for every week AFTER the
+// entered for the "lifetime-units" metric (its own section in Data Entry,
+// not a Sales graph — see entryService.js), for every week AFTER the
 // stored total was last confirmed (setTotal's asOf), is added on top of
 // that confirmed base. This is computed fresh on every read rather than
 // incremented as each week is saved, so correcting a past week's units

@@ -201,7 +201,17 @@ function toPositionalDepartment(sparseSource, weeks) {
   // fallback for that case is to pass the raw sparse numbers through
   // unmerged (no chartType/format/name) rather than to hide the card, which
   // would corrupt the render instead of removing it.
-  const METRICS = sparseSource.METRICS.filter((m) => !sharedRegistry.isMetricHidden(m.slug)).map((m) => mergeWithRegistry(toPositional(m, weekEndings)));
+  //
+  // A homepageOnly metric (e.g. "lifetime-units") is dropped the same way —
+  // it has real stored data and a real registry entry, it just isn't a
+  // dashboard graph. Entered and read through entryService.js/
+  // counterService.js directly, which bypass this positional conversion
+  // entirely, so this filter never affects its own weekly entry.
+  const METRICS = sparseSource.METRICS.filter((m) => {
+    if (sharedRegistry.isMetricHidden(m.slug)) return false;
+    if (sharedRegistry.getMetric(m.slug)?.homepageOnly) return false;
+    return true;
+  }).map((m) => mergeWithRegistry(toPositional(m, weekEndings)));
   return {
     WEEKS: smartLabels(weeks),
     WEEK_ENDINGS: weekEndings,

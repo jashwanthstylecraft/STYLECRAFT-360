@@ -96,13 +96,23 @@ function getEntryData(weekEnding) {
   const next = allWeeks[resolvedIndex + 1] ?? null;
   const currentWeekEnding = sharedRegistry.currentWeek(new Date());
 
-  const departments = DEPARTMENT_KEYS.map((departmentKey) => {
+  // homepageOnly metrics (e.g. "lifetime-units") still live in a real
+  // department's sparse storage, but aren't Sales/Inventory/etc. graphs —
+  // pulled out of their normal department bucket here so the client can
+  // render them in their own separate section instead, never under a
+  // department heading they don't conceptually belong to.
+  const departments = [];
+  const homepageMetrics = [];
+  for (const departmentKey of DEPARTMENT_KEYS) {
     const sparse = repository.getSparseDepartmentData(departmentKey);
-    const metrics = sharedRegistry
-      .getDepartmentMetrics(departmentKey)
-      .map((registryMetric) => buildMetricRow(registryMetric, sparse.METRICS, resolved.weekEnding, prior?.weekEnding ?? null));
-    return { key: departmentKey, metrics };
-  });
+    const metrics = [];
+    for (const registryMetric of sharedRegistry.getDepartmentMetrics(departmentKey)) {
+      const row = buildMetricRow(registryMetric, sparse.METRICS, resolved.weekEnding, prior?.weekEnding ?? null);
+      if (registryMetric.homepageOnly) homepageMetrics.push(row);
+      else metrics.push(row);
+    }
+    departments.push({ key: departmentKey, metrics });
+  }
 
   return {
     weekEnding: resolved.weekEnding,
@@ -116,6 +126,7 @@ function getEntryData(weekEnding) {
     calendarStart: sharedRegistry.CALENDAR_START,
     calendarEnd: sharedRegistry.CALENDAR_END,
     departments,
+    homepageMetrics,
   };
 }
 

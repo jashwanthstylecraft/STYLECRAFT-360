@@ -111,14 +111,24 @@ export const METRICS = [
     description: "Direct-to-consumer sales under the Johnny B brand.",
   },
   {
-    slug: "units-sold",
-    name: "Units Sold",
+    slug: "lifetime-units",
+    name: "Lifetime Units",
     department: "sales",
     chartType: "bar",
     goalDirection: "higher",
     format: "count",
     aggregationMethod: "sum",
-    description: "Units sold during the week — summed into the lifetime units counter on the Home dashboard.",
+    // Entered weekly like any other metric, but NOT a Sales graph — it only
+    // feeds the Home dashboard's lifetime units counter (counterService.js
+    // sums every week's entry here into the Settings-confirmed base). The
+    // `department: "sales"` above is pure storage plumbing (reuses the same
+    // sparse snapshot bucket); the homepageOnly flag is what actually keeps
+    // it off the Sales dashboard page and out of Sales' own totals — see
+    // repository.js's toPositionalDepartment filter — and out of the Sales
+    // section in Data Entry, which renders it in its own section instead
+    // (see entryService.js's homepageMetrics split).
+    homepageOnly: true,
+    description: "THIS WEEK's units sold only (not a running total) — added to the Lifetime Units counter on the Home dashboard.",
   },
 
   // ---- Inventory & Purchasing ----

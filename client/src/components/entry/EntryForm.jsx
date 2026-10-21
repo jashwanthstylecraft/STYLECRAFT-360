@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check, StickyNote, CalendarRange } from "lucide-react";
+import { AlertTriangle, Check, StickyNote, CalendarRange, Home } from "lucide-react";
 import { formatValue } from "../../utils/format";
 
 const GOAL_RANGE_PRESETS = [
@@ -340,6 +340,30 @@ export default function EntryForm({ entryData, onSave, onSetGoalRange, isSaving 
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        {entryData.homepageMetrics?.length > 0 && (
+          <div className="mb-6 rounded-xl border border-dashed border-surface-border bg-surface px-3 py-3">
+            <h3 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-ink-muted">
+              <Home size={13} />
+              Home dashboard only
+            </h3>
+            <p className="mb-2 text-xs text-ink-muted">Not a Sales graph — feeds the Home page's counter only.</p>
+            <div>
+              {entryData.homepageMetrics.map((metric) => (
+                <MetricRow
+                  key={metric.slug}
+                  metric={metric}
+                  edits={edits}
+                  onEdit={handleEdit}
+                  fieldErrors={fieldErrors}
+                  noteExpanded={expandedNoteSlugs.has(metric.slug)}
+                  onToggleNote={toggleNote}
+                  startWeekEnding={entryData.weekEnding}
+                  onSetGoalRange={onSetGoalRange}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {DEPARTMENT_ORDER.map((deptKey) => {
           const dept = entryData.departments.find((d) => d.key === deptKey);
           if (!dept) return null;
