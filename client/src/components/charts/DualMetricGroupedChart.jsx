@@ -30,7 +30,16 @@ function computeNiceTicks(dataMax, targetLine, tickCount = 5) {
 
 // Generalizes Phase 1's Pre-orders/Backorders grouped chart into two named,
 // arbitrarily-colored series with an optional flat target/reference line —
-// used by In-Stock %, Shipping Time, and Education Events.
+// used by In-Stock %, Shipping Time, Education Events, and Promotional Sales.
+//
+// `formats`: the two series' own value formats (e.g. In-Stock's two series
+// are both "percent"; Promotional Sales is "currency" + "count"). When they
+// MATCH, both bars share one left axis exactly as before — zero visual
+// change for the existing same-scale consumers. When they DIFFER, the two
+// series are almost certainly on wildly different scales (dollars vs. units
+// sold), so sharing one axis would flatten the smaller series to near-zero —
+// the second series gets its own right-side axis and its own independently-
+// computed nice-tick domain instead.
 export default function DualMetricGroupedChart({
   weeks,
   series,
@@ -39,6 +48,7 @@ export default function DualMetricGroupedChart({
   colors,
   targetLine,
   valueFormat = "currency",
+  formats,
   height = 196,
   compact = false,
   isAnimationActive = true,
@@ -55,6 +65,8 @@ export default function DualMetricGroupedChart({
   const [firstKey, secondKey] = groupKeys;
   const [firstLabel, secondLabel] = labels;
   const [firstColor, secondColor] = resolvedColors;
+  const [firstFormat, secondFormat] = formats ?? [valueFormat, valueFormat];
+  const useDualAxis = firstFormat !== secondFormat;
   const firstRoc = rocByKey?.[firstKey];
   const secondRoc = rocByKey?.[secondKey];
   // Trailing-13-week-total, year-over-year % change — one ROC line per
@@ -63,6 +75,10 @@ export default function DualMetricGroupedChart({
   const showRoc =
     (Array.isArray(firstRoc) && firstRoc.some((v) => v !== null && v !== undefined)) ||
     (Array.isArray(secondRoc) && secondRoc.some((v) => v !== null && v !== undefined));
+  // A dual-axis chart's ROC overlay would need a THIRD axis to sit
+  // alongside two already-occupied sides — rather than crowd the chart,
+  // the (rare, YoY-needing-65-weeks) ROC overlay is simply not offered here.
+  const showRocAxis = showRoc && !useDualAxis;
 
   const data = weeks.map((week, i) => ({
     week,
@@ -72,8 +88,11 @@ export default function DualMetricGroupedChart({
     [`${secondKey}Roc`]: showRoc ? secondRoc?.[i] ?? null : undefined,
   }));
 
-  const dataMax = data.reduce((max, d) => Math.max(max, d[firstKey] ?? 0, d[secondKey] ?? 0), 0);
-  const niceTicks = computeNiceTicks(dataMax, targetLine);
+  const firstMax = data.reduce((max, d) => Math.max(max, d[firstKey] ?? 0), 0);
+  const secondMax = data.reduce((max, d) => Math.max(max, d[secondKey] ?? 0), 0);
+  const dataMax = useDualAxis ? firstMax : Math.max(firstMax, secondMax);
+  const niceTicks = computeNiceTicks(dataMax, useDualAxis ? undefined : targetLine);
+  const secondNiceTicks = useDualAxis ? computeNiceTicks(secondMax) : null;
 
   return (
     <div>
@@ -96,16 +115,31 @@ export default function DualMetricGroupedChart({
             interval={xAxisInterval(weeks.length, labelThinThreshold)}
           />
           <YAxis
+            yAxisId="left"
             domain={niceTicks?.domain}
             ticks={niceTicks?.ticks}
             tick={{ fontSize: 11, fill: COLORS.axisText }}
-            tickFormatter={(v) => formatValue(v, valueFormat)}
+            tickFormatter={(v) => formatValue(v, firstFormat)}
             tickLine={false}
             axisLine={false}
             width={52}
             hide={compact}
           />
-          {showRoc && !compact && (
+          {useDualAxis && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              domain={secondNiceTicks?.domain}
+              ticks={secondNiceTicks?.ticks}
+              tick={{ fontSize: 11, fill: secondColor }}
+              tickFormatter={(v) => formatValue(v, secondFormat)}
+              tickLine={false}
+              axisLine={false}
+              width={52}
+              hide={compact}
+            />
+          )}
+          {showRocAxis && !compact && (
             <YAxis
               yAxisId="roc"
               orientation="right"
@@ -126,25 +160,26 @@ export default function DualMetricGroupedChart({
                 const point = payload?.[0]?.payload;
                 if (!point) return null;
                 const rows = [
-                  { key: firstKey, label: firstLabel, value: point[firstKey], color: firstColor, shape: "rect" },
-                  { key: secondKey, label: secondLabel, value: point[secondKey], color: secondColor, shape: "rect" },
+                  { key: firstKey, label: firstLabel, value: point[firstKey], valueFormat: firstFormat, color: firstColor, shape: "rect" },
+                  { key: secondKey, label: secondLabel, value: point[secondKey], valueFormat: secondFormat, color: secondColor, shape: "rect" },
                 ];
                 if (targetLine !== undefined) {
-                  rows.push({ key: "target", label: "Target", value: targetLine, color: COLORS.goal, shape: "line" });
+                  rows.push({ key: "target", label: "Target", value: targetLine, valueFormat: firstFormat, color: COLORS.goal, shape: "line" });
                 }
                 const firstRocVal = point[`${firstKey}Roc`];
                 const secondRocVal = point[`${secondKey}Roc`];
-                if (showRoc && firstRocVal !== null && firstRocVal !== undefined) {
+                if (showRocAxis && firstRocVal !== null && firstRocVal !== undefined) {
                   rows.push({ key: `${firstKey}Roc`, label: `${firstLabel} ROC (YoY)`, value: firstRocVal / 100, valueFormat: "percent", color: firstColor, shape: "line" });
                 }
-                if (showRoc && secondRocVal !== null && secondRocVal !== undefined) {
+                if (showRocAxis && secondRocVal !== null && secondRocVal !== undefined) {
                   rows.push({ key: `${secondKey}Roc`, label: `${secondLabel} ROC (YoY)`, value: secondRocVal / 100, valueFormat: "percent", color: secondColor, shape: "line" });
                 }
-                return <ChartTooltip active={active} label={label} rows={rows} valueFormat={valueFormat} />;
+                return <ChartTooltip active={active} label={label} rows={rows} valueFormat={firstFormat} />;
               }}
             />
           )}
           <Bar
+            yAxisId="left"
             dataKey={firstKey}
             fill={firstColor}
             radius={[4, 4, 0, 0]}
@@ -155,6 +190,7 @@ export default function DualMetricGroupedChart({
             animationBegin={0}
           />
           <Bar
+            yAxisId={useDualAxis ? "right" : "left"}
             dataKey={secondKey}
             fill={secondColor}
             radius={[4, 4, 0, 0]}
@@ -164,7 +200,7 @@ export default function DualMetricGroupedChart({
             animationEasing={animationEasing}
             animationBegin={animationBeginSecond ?? 0}
           />
-          {showRoc && !compact && (
+          {showRocAxis && !compact && (
             <Line
               yAxisId="roc"
               type="monotone"
@@ -179,7 +215,7 @@ export default function DualMetricGroupedChart({
               animationEasing={animationEasing}
             />
           )}
-          {showRoc && !compact && (
+          {showRocAxis && !compact && (
             <Line
               yAxisId="roc"
               type="monotone"

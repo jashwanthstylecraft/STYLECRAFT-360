@@ -83,6 +83,7 @@ export default function MetricChart({ metric, weeks, chartAnim = {}, heroProps =
         colors={metric.headerValues.map((v) => resolveNamedColor(v.color))}
         targetLine={metric.targetLine}
         valueFormat={metric.headerValues[0].format}
+        formats={metric.headerValues.map((v) => v.format ?? format)}
         showLegend={!["in-stock-percentage", "shipping-time-days", "education-events"].includes(metric.slug)}
         {...chartAnim}
         {...heroProps}

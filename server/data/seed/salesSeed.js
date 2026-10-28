@@ -17,6 +17,7 @@ const METRICS = [
   { slug: "beauty-sales", values: {} },
   { slug: "preorders-backorders", values: {} },
   { slug: "johnny-b-b2c", values: {} },
+  { slug: "promotional-sales", values: {} },
   { slug: "lifetime-units", values: {} },
 ];
 

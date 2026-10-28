@@ -111,6 +111,28 @@ export const METRICS = [
     description: "Direct-to-consumer sales under the Johnny B brand.",
   },
   {
+    slug: "promotional-sales",
+    name: "Promotional Sales",
+    department: "sales",
+    chartType: "dualGrouped",
+    goalDirection: "higher",
+    aggregationMethod: "sum",
+    groupKeys: ["dollarSales", "unitSales"],
+    // $ Sales and Unit Sales are different units on very different scales —
+    // DualMetricGroupedChart.jsx gives these their own left/right axes
+    // specifically because headerValues' two formats differ (see its
+    // useDualAxis comment); In-Stock %/Shipping Time's two same-format
+    // series still share one axis, unchanged.
+    headerValues: [
+      { label: "$ Sales", format: "currency", color: "blue" },
+      { label: "Unit Sales", format: "count", color: "red" },
+    ],
+    // One Goal field per week, same as every other multi-series metric
+    // (Open Factory P.O.s' "Budget", Website Sales' goal) — scoped to the
+    // dollar result, the figure a sales goal normally targets.
+    description: "Promotional campaign performance — dollar sales and unit sales sold.",
+  },
+  {
     slug: "lifetime-units",
     name: "Lifetime Units",
     department: "sales",
