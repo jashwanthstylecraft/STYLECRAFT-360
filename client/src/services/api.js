@@ -134,6 +134,10 @@ export function setCounterTotal(total) {
   });
 }
 
+export function fetchUnitsBySku() {
+  return request("/counter/units-by-sku");
+}
+
 export function login(username, password) {
   return request("/auth/login", {
     method: "POST",

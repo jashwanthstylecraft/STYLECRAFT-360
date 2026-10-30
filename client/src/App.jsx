@@ -11,6 +11,7 @@ import CustomerService from "./pages/CustomerService";
 import DataUpload from "./pages/DataUpload";
 import DataEntry from "./pages/DataEntry";
 import MetricDetail from "./pages/MetricDetail";
+import UnitsSoldBySku from "./pages/UnitsSoldBySku";
 import Settings from "./pages/Settings";
 import { useDataUpdatesListener } from "./hooks/useDataUpdatesListener";
 
@@ -137,6 +138,14 @@ export default function App() {
         element={
           <ProtectedRoute requireRole="admin">
             <DataEntry />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/units-sold"
+        element={
+          <ProtectedRoute>
+            <UnitsSoldBySku />
           </ProtectedRoute>
         }
       />

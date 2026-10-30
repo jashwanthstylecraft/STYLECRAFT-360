@@ -1,4 +1,5 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ListTree } from "lucide-react";
+import { Link } from "react-router-dom";
 import PageShell from "../components/layout/PageShell";
 import OdometerCounter from "../components/counter/OdometerCounter";
 import { useCounter } from "../hooks/useCounter";
@@ -16,7 +17,10 @@ function Hero({ total, asOf, isPlaceholder, reduceMotion }) {
     : "—";
 
   return (
-    <div className="mb-8 rounded-2xl bg-navy px-6 py-10 text-center shadow-sm sm:px-10 sm:py-14">
+    <Link
+      to="/units-sold"
+      className="group mb-8 block rounded-2xl bg-navy px-6 py-10 text-center shadow-sm transition-colors hover:bg-navy/90 sm:px-10 sm:py-14"
+    >
       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-actual">Lifetime units sold</div>
       <div className="mt-3">
         {total === null ? (
@@ -32,13 +36,17 @@ function Hero({ total, asOf, isPlaceholder, reduceMotion }) {
       </div>
       <p className="mt-4 text-sm font-medium text-slate-300">The whole business, at a glance.</p>
       <p className="mt-1 text-xs text-slate-500">Last updated {formattedAsOf}</p>
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-actual opacity-0 transition-opacity group-hover:opacity-100">
+        <ListTree size={12} />
+        View the breakdown by SKU
+      </p>
       {isPlaceholder && (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-400 ring-1 ring-inset ring-amber-500/30">
           <AlertTriangle size={12} />
           Unverified placeholder — real total not yet set
         </p>
       )}
-    </div>
+    </Link>
   );
 }
 

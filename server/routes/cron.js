@@ -17,6 +17,9 @@ const { sendMail } = require("../services/emailService");
 const { fetchDataForChartRows } = require("../services/googleSheetsFetcher");
 const { planSyncFromRows, resolveWeekEnding, checkTargetLineDrift, TARGET_LINE_COLUMNS } = require("../scripts/sync-google-sheet");
 const entryService = require("../services/entryService");
+const { fetchUnitsBySku } = require("../services/unitsBySkuFetcher");
+const unitsBySkuService = require("../services/unitsBySkuService");
+const counterService = require("../services/counterService");
 
 const router = express.Router();
 
@@ -115,7 +118,24 @@ router.get("/weekly-sheet-sync", async (req, res) => {
         )
       : [];
 
-    const report = { anchorWeek: latestDataWeekEnding, synced: [], failed: [], unresolved, targetLineDrift };
+    // Independent of the metric-by-metric sync above (different sheet,
+    // different shape — a full all-time snapshot, not weekly deltas) — runs
+    // in its own try/catch so a failure here (e.g. the sheet's layout
+    // changes) can't block the rest of the week's metrics from syncing, and
+    // vice versa. Unlike every other synced metric, this REPLACES the Home
+    // counter's total outright (setTotal, not an addition) because the
+    // sheet's own grand total already IS the current lifetime figure.
+    let unitsBySku = null;
+    try {
+      const { grandTotal, skus } = await fetchUnitsBySku();
+      await unitsBySkuService.setUnitsBySku({ grandTotal, skus });
+      const counterState = await counterService.setTotal(Math.round(grandTotal));
+      unitsBySku = { ok: true, grandTotal, skuCount: skus.length, counterTotal: counterState.total };
+    } catch (err) {
+      unitsBySku = { ok: false, error: err.message };
+    }
+
+    const report = { anchorWeek: latestDataWeekEnding, synced: [], failed: [], unresolved, targetLineDrift, unitsBySku };
     for (const plan of toSync) {
       // planSyncFromRows already sorted oldest-first; each saveWeek() call
       // updates the shared in-memory snapshot cache immediately (see
