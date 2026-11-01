@@ -151,7 +151,7 @@ export default function DualMetricGroupedChart({
             />
           )}
           {targetLine !== undefined && (
-            <ReferenceLine y={targetLine} stroke={COLORS.goal} strokeWidth={2} strokeDasharray="5 4" />
+            <ReferenceLine yAxisId="left" y={targetLine} stroke={COLORS.goal} strokeWidth={2} strokeDasharray="5 4" />
           )}
           {!compact && (
             <Tooltip
