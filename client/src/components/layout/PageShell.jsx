@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import PageErrorBoundary from "./PageErrorBoundary";
 import { getScrollPosition, saveScrollPosition } from "../../utils/scrollPositions";
 
 // `scrollKey` is opt-in — pages that don't pass it (every page except the
@@ -36,7 +37,9 @@ export default function PageShell({ lastUpdated, showCounter = true, scrollKey, 
           onOpenMobileNav={() => setMobileOpen(true)}
           showCounter={showCounter}
         />
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <PageErrorBoundary>{children}</PageErrorBoundary>
+        </main>
       </div>
     </div>
   );
