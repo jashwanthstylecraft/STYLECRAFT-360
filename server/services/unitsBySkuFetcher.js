@@ -38,16 +38,24 @@ async function fetchRawValues() {
   return json.values ?? [];
 }
 
+// These aren't product units sold — they're non-inventory line items the
+// warehouse system invoices through the same sheet (shipping/freight
+// charges, sending out a repaired item, miscellaneous charges) — so they're
+// excluded from both the per-SKU list and the grand total.
+const EXCLUDED_SKUS = new Set(["ShippingServiceItem", "SendRepairedItem", "FREIGHT", "SendMiscellaneousItem"]);
+
 // Row shape: [SKU, Item Description, Qty Invoiced, Sort Order]. The sheet's
-// own last row is always "GRAND TOTAL" / "All SKUs Combined" — pulled out
-// as the authoritative total rather than summed ourselves, so this never
-// silently drifts from whatever total the business itself considers correct
-// (e.g. if a future version of the sheet excludes a SKU from the sum for a
-// reason not visible in the per-SKU rows).
+// own last row is always "GRAND TOTAL" / "All SKUs Combined" — used as the
+// starting point rather than summed ourselves, so this never silently
+// drifts from whatever total the business itself considers correct (e.g. if
+// a future version of the sheet excludes a SKU from the sum for a reason
+// not visible in the per-SKU rows) — EXCLUDED_SKUS above is then subtracted
+// back out on top of that.
 function parseRows(values) {
   const [, ...rows] = values; // drop the header row
   const skus = [];
   let grandTotal = null;
+  let excludedQty = 0;
 
   for (const row of rows) {
     const [sku, description, qty] = row;
@@ -56,14 +64,19 @@ function parseRows(values) {
       grandTotal = Number(qty);
       break;
     }
-    skus.push({ sku: String(sku), description: description ? String(description) : "", qty: Number(qty) || 0 });
+    const skuStr = String(sku);
+    if (EXCLUDED_SKUS.has(skuStr)) {
+      excludedQty += Number(qty) || 0;
+      continue;
+    }
+    skus.push({ sku: skuStr, description: description ? String(description) : "", qty: Number(qty) || 0 });
   }
 
   if (grandTotal === null || !Number.isFinite(grandTotal)) {
     throw new Error('Could not find a numeric "GRAND TOTAL" row in the units-by-SKU sheet — its layout may have changed.');
   }
 
-  return { skus, grandTotal };
+  return { skus, grandTotal: grandTotal - excludedQty };
 }
 
 async function fetchUnitsBySku() {
