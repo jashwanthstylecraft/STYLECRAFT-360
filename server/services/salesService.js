@@ -51,6 +51,14 @@ function resultSeriesFor(metric) {
   return metric.series;
 }
 
+// A whole week can be missing entirely, not just an individual sub-key —
+// point itself may be null. Same shape as metricsHelpers.js's seriesForKey;
+// kept as its own copy here per this file's existing "Phase 1 behavior must
+// stay byte-for-byte unchanged" policy (see metricsHelpers.js's header).
+function seriesForKey(metric, key) {
+  return metric.series.map((point) => point?.[key] ?? null);
+}
+
 // Missing values don't count toward the total, but a week where EVERY
 // input is missing (e.g. the tail of a very wide "All time" range, past
 // the last real data) must stay missing — never collapse to a fabricated 0.
@@ -73,6 +81,21 @@ function buildMetric(metric) {
       preorderWowDeltaPct: wowDeltaPct(preorderSeries),
       backorderWowDeltaPct: wowDeltaPct(backorderSeries),
     };
+  }
+
+  // Multi-series cards keyed by groupKeys (currently only Promotional
+  // Sales) — each named value in headerValues needs its own latest result
+  // and WoW delta, same as metricsHelpers.js's buildMetric does for
+  // inventory/finance/operations' headerValues metrics. Without this
+  // branch headerValues reaches the client with no `value`/`wowDeltaPct`
+  // at all, so the $ Sales / Unit Sales numbers at the top of the card
+  // never render.
+  if (Array.isArray(metric.headerValues) && metric.groupKeys) {
+    const headerValues = metric.headerValues.map((headerValue, i) => {
+      const series = seriesForKey(metric, metric.groupKeys[i]);
+      return { ...headerValue, value: series[latestIndex], wowDeltaPct: wowDeltaPct(series) };
+    });
+    return { ...metric, headerValues };
   }
 
   const resultSeries = resultSeriesFor(metric);
