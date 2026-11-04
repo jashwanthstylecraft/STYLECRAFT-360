@@ -26,7 +26,7 @@ export default function ValuesHeader({ name, values, goalDirection = "higher", h
               className="truncate text-[32px] font-bold tabular-nums leading-tight"
               style={{ color: resolveNamedColor(entry.color) }}
             >
-              {formatValue(entry.value, entry.format)}
+              {formatValue(entry.value, entry.format, { roundThousands: true })}
             </div>
           </div>
         ))}
