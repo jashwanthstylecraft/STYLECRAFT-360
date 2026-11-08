@@ -10,7 +10,12 @@
 // (GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY), shared as a Viewer on this sheet too.
 const { GoogleAuth } = require("google-auth-library");
 
-const SPREADSHEET_ID = "18D6ay96suzQRNpid2gU7dMXafkWmQW68drnuHxprQ0I";
+// Re-pointed 2026-11-08: the sheet is periodically re-exported as an Office
+// file by the warehouse system (the Sheets API can't read those directly —
+// see googleSheetsFetcher.js's equivalent note), which breaks this ID each
+// time; this is the latest "Save as Google Sheets" copy, shared read-only
+// with the same service account.
+const SPREADSHEET_ID = "1dF-wYKHj5MAdHuTKRq_y_TR9ME8IxKoskFNgo9F-yTU";
 const SHEET_TAB = "AllTimeInvoicedQtybySKU.xlsx";
 const RANGE = `'${SHEET_TAB}'!A1:D2000`;
 
