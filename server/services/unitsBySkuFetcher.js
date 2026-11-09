@@ -45,9 +45,9 @@ async function fetchRawValues() {
 
 // These aren't product units sold — they're non-inventory line items the
 // warehouse system invoices through the same sheet (shipping/freight
-// charges, sending out a repaired item, miscellaneous charges) — so they're
-// excluded from both the per-SKU list and the grand total.
-const EXCLUDED_SKUS = new Set(["ShippingServiceItem", "SendRepairedItem", "FREIGHT", "SendMiscellaneousItem"]);
+// charges, sending out a repaired item, miscellaneous charges, sales tax)
+// — so they're excluded from both the per-SKU list and the grand total.
+const EXCLUDED_SKUS = new Set(["ShippingServiceItem", "SendRepairedItem", "FREIGHT", "SendMiscellaneousItem", "TAX"]);
 
 // Row shape: [SKU, Item Description, Qty Invoiced, Sort Order]. The sheet's
 // own last row is always "GRAND TOTAL" / "All SKUs Combined" — used as the
