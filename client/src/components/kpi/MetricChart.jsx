@@ -63,6 +63,7 @@ export default function MetricChart({ metric, weeks, chartAnim = {}, heroProps =
         goalSeries={metric.goalSeries}
         stackKeys={metric.stackKeys}
         showLegend={false}
+        showSegmentLabels={false}
         {...chartAnim}
         {...heroProps}
       />
